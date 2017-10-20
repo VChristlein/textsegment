@@ -279,7 +279,8 @@ def main(unused_argv):
     cifar_classifier.fit(
         input_fn=lambda: input_fn(
             is_training=True, num_epochs=FLAGS.epochs_per_eval),
-        hooks=[logging_hook])
+        monitors=[logging_hook])
+        # hooks=[logging_hook])
 
     # Evaluate the model and print results
     eval_results = cifar_classifier.evaluate(
