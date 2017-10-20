@@ -22,8 +22,7 @@ import argparse
 import os
 
 import tensorflow as tf
-from tensorflow.contrib.learn.python.learn.estimators import \
-  model_fn as model_fn_lib
+from tensorflow.contrib.learn.python.learn.estimators import model_fn as model_fn_lib
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -59,8 +58,8 @@ _NUM_CLASSES = 10
 _NUM_DATA_FILES = 5
 
 _NUM_IMAGES = {
-  'train':      50000,
-  'validation': 10000,
+    'train': 50000,
+    'validation': 10000,
 }
 
 # Scale the learning rate linearly with the batch size. When the batch size is
@@ -78,9 +77,7 @@ _BATCHES_PER_EPOCH = _NUM_IMAGES['train'] / FLAGS.batch_size
 def record_dataset(filenames):
   """Returns an input pipeline Dataset from `filenames`."""
   record_bytes = _HEIGHT * _WIDTH * _DEPTH + 1
-  filename_queue = tf.train.string_input_producer(filenames)
-  return tf.FixedLengthRecordReader(record_bytes).read(filename_queue)
-  # return tf.contrib.data.FixedLengthRecordDataset(filenames, record_bytes)  # tf 1.3
+  return tf.contrib.data.FixedLengthRecordDataset(filenames, record_bytes)
 
 
 def get_filenames(is_training):
@@ -88,13 +85,13 @@ def get_filenames(is_training):
   data_dir = os.path.join(FLAGS.data_dir, 'cifar-10-batches-bin')
 
   assert os.path.exists(data_dir), (
-    'Run cifar10_download_and_extract.py first to download and extract the '
-    'CIFAR-10 data.')
+      'Run cifar10_download_and_extract.py first to download and extract the '
+      'CIFAR-10 data.')
 
   if is_training:
     return [
-      os.path.join(data_dir, 'data_batch_%d.bin' % i)
-      for i in range(1, _NUM_DATA_FILES + 1)
+        os.path.join(data_dir, 'data_batch_%d.bin' % i)
+        for i in range(1, _NUM_DATA_FILES + 1)
     ]
   else:
     return [os.path.join(data_dir, 'test_batch.bin')]
@@ -150,46 +147,32 @@ def input_fn(is_training, num_epochs=1):
   Returns:
     A tuple of images and labels.
   """
+  dataset = record_dataset(get_filenames(is_training))
+  dataset = dataset.map(dataset_parser, num_threads=1,
+                        output_buffer_size=2 * FLAGS.batch_size)
 
-  # dataset = record_dataset(get_filenames(is_training))
-  # dataset = dataset.map(dataset_parser, num_threads=1,
-  #                       output_buffer_size=2 * FLAGS.batch_size)
-  key, value = record_dataset(get_filenames(is_training))
-  image, label = dataset_parser(value)
-
+  # For training, preprocess the image and shuffle.
   if is_training:
-    image, label = train_preprocess_fn(image, label)
+    dataset = dataset.map(train_preprocess_fn, num_threads=1,
+                          output_buffer_size=2 * FLAGS.batch_size)
 
-  image = tf.image.per_image_standardization(image)
+    # Ensure that the capacity is sufficiently large to provide good random
+    # shuffling.
+    buffer_size = int(0.4 * _NUM_IMAGES['train'])
+    dataset = dataset.shuffle(buffer_size=buffer_size)
 
-  min_after_dequeue = 10000
-  capacity = min_after_dequeue + 3 * FLAGS.batch_size
-  images, labels = tf.train.shuffle_batch(
-      [image, label], batch_size=FLAGS.batch_size,
-      capacity=capacity, min_after_dequeue=min_after_dequeue)
+  # Subtract off the mean and divide by the variance of the pixels.
+  dataset = dataset.map(
+      lambda image, label: (tf.image.per_image_standardization(image), label),
+      num_threads=1,
+      output_buffer_size=2 * FLAGS.batch_size)
 
-  # # For training, preprocess the image and shuffle.
-  # if is_training:
-  #   dataset = dataset.map(train_preprocess_fn, num_threads=1,
-  #                         output_buffer_size=2 * FLAGS.batch_size)
-  #
-  #   # Ensure that the capacity is sufficiently large to provide good random
-  #   # shuffling.
-  #   buffer_size = int(0.4 * _NUM_IMAGES['train'])
-  #   dataset = dataset.shuffle(buffer_size=buffer_size)
-  #
-  # # Subtract off the mean and divide by the variance of the pixels.
-  # dataset = dataset.map(
-  #     lambda image, label: (tf.image.per_image_standardization(image), label),
-  #     num_threads=1,
-  #     output_buffer_size=2 * FLAGS.batch_size)
-  #
-  # dataset = dataset.repeat(num_epochs)
-  #
-  # # Batch results by up to batch_size, and then fetch the tuple from the
-  # # iterator.
-  # iterator = dataset.batch(FLAGS.batch_size).make_one_shot_iterator()
-  # images, labels = iterator.get_next()
+  dataset = dataset.repeat(num_epochs)
+
+  # Batch results by up to batch_size, and then fetch the tuple from the
+  # iterator.
+  iterator = dataset.batch(FLAGS.batch_size).make_one_shot_iterator()
+  images, labels = iterator.get_next()
 
   return images, labels
 
@@ -205,13 +188,12 @@ def cifar10_model_fn(features, labels, mode):
   logits = network(inputs, mode == tf.estimator.ModeKeys.TRAIN)
 
   predictions = {
-    'classes':       tf.argmax(logits, axis=1),
-    'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
+      'classes': tf.argmax(logits, axis=1),
+      'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
   }
 
   if mode == tf.estimator.ModeKeys.PREDICT:
-    return tf.contrib.learn.estimator.EstimatorSpec(mode=mode,
-                                                    predictions=predictions)
+    return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
   # Calculate loss, which includes softmax cross entropy and L2 regularization.
   cross_entropy = tf.losses.softmax_cross_entropy(
@@ -286,9 +268,9 @@ def main(unused_argv):
 
   for _ in range(FLAGS.train_epochs // FLAGS.epochs_per_eval):
     tensors_to_log = {
-      'learning_rate':  'learning_rate',
-      'cross_entropy':  'cross_entropy',
-      'train_accuracy': 'train_accuracy'
+        'learning_rate': 'learning_rate',
+        'cross_entropy': 'cross_entropy',
+        'train_accuracy': 'train_accuracy'
     }
 
     logging_hook = tf.train.LoggingTensorHook(
@@ -297,8 +279,7 @@ def main(unused_argv):
     cifar_classifier.fit(
         input_fn=lambda: input_fn(
             is_training=True, num_epochs=FLAGS.epochs_per_eval),
-        monitors=[logging_hook])  # tf 1.2
-    # hooks=[logging_hook])  # tf 1.3
+        hooks=[logging_hook])
 
     # Evaluate the model and print results
     eval_results = cifar_classifier.evaluate(
