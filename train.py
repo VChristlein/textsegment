@@ -22,8 +22,6 @@ import argparse
 import os
 
 import tensorflow as tf
-from tensorflow.contrib.learn.python.learn.estimators import model_fn as model_fn_lib
-
 tf.logging.set_verbosity(tf.logging.INFO)
 
 import resnet_model
@@ -72,7 +70,6 @@ _MOMENTUM = 0.9
 _WEIGHT_DECAY = 2e-4
 
 _BATCHES_PER_EPOCH = _NUM_IMAGES['train'] / FLAGS.batch_size
-
 
 def record_dataset(filenames):
   """Returns an input pipeline Dataset from `filenames`."""
@@ -239,18 +236,13 @@ def cifar10_model_fn(features, labels, mode):
   tf.identity(accuracy[1], name='train_accuracy')
   tf.summary.scalar('train_accuracy', accuracy[1])
 
-  # Tensorflow 1.2:
-  return model_fn_lib.ModelFnOps(
-      mode=mode, predictions=predictions, loss=loss, train_op=train_op
-  )
-
   # Since Tensorflow 1.3:
-  # return tf.estimator.EstimatorSpec(
-  #     mode=mode,
-  #     predictions=predictions,
-  #     loss=loss,
-  #     train_op=train_op,
-  #     eval_metric_ops=metrics)
+  return tf.estimator.EstimatorSpec(
+      mode=mode,
+      predictions=predictions,
+      loss=loss,
+      train_op=train_op,
+      eval_metric_ops=metrics)
 
 
 def main(unused_argv):
@@ -258,13 +250,10 @@ def main(unused_argv):
   os.environ['TF_ENABLE_WINOGRAD_NONFUSED'] = '1'
 
   # Set up a RunConfig to only save checkpoints once per training cycle.
-  run_config = tf.estimator.RunConfig().replace(save_checkpoints_secs=1e9)
-  # tf 1.2:
-  cifar_classifier = tf.contrib.learn.Estimator(
+  run_config = tf.estimator.RunConfig().replace(save_checkpoints_secs=1000)
+
+  cifar_classifier = tf.estimator.Estimator(
       model_fn=cifar10_model_fn, model_dir=FLAGS.model_dir, config=run_config)
-  # tf 1.3:
-  # cifar_classifier = tf.estimator.Estimator(
-  #     model_fn=cifar10_model_fn, model_dir=FLAGS.model_dir, config=run_config)
 
   for _ in range(FLAGS.train_epochs // FLAGS.epochs_per_eval):
     tensors_to_log = {
@@ -276,11 +265,10 @@ def main(unused_argv):
     logging_hook = tf.train.LoggingTensorHook(
         tensors=tensors_to_log, every_n_iter=100)
 
-    cifar_classifier.fit(
+    cifar_classifier.train(
         input_fn=lambda: input_fn(
             is_training=True, num_epochs=FLAGS.epochs_per_eval),
-        monitors=[logging_hook])
-        # hooks=[logging_hook])
+        hooks=[logging_hook])
 
     # Evaluate the model and print results
     eval_results = cifar_classifier.evaluate(
