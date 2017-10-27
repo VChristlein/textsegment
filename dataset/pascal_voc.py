@@ -179,7 +179,10 @@ def map_ground_truth(ground_truth, num_classes):
   return label
 
 
-def pascal_voc_input_fn(is_training, num_epochs, batch_size, num_classes,
+def pascal_voc_input_fn(is_training,
+                        num_epochs=1,
+                        batch_size=1,
+                        num_classes=21,
                         record_dir=DEFAULT_RECORD_DIR,
                         data_dir=DEFAULT_DATA_DIR):
   prepare_pascal_voc(data_dir, record_dir)
