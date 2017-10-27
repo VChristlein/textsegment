@@ -7,8 +7,6 @@ import os
 
 import tensorflow as tf
 
-tf.logging.set_verbosity(tf.logging.INFO)
-
 from models.unet import unet_gen_model_fn as model_fn_generator
 from dataset.pascal_voc import pascal_voc_input_fn as input_fn
 
@@ -67,7 +65,10 @@ def main(unused_argv):
   model_fn = model_fn_generator(
       unet_depth=FLAGS.unet_depth,
       num_classes=_NUM_CLASSES,
-      input_shape=[_HEIGHT, _WIDTH, _DEPTH])
+      input_shape=[_HEIGHT, _WIDTH, _DEPTH],
+      initial_learning_rate=_INITIAL_LEARNING_RATE,
+      momentum=_MOMENTUM,
+      weight_decay=_WEIGHT_DECAY)
 
   classifier = tf.estimator.Estimator(
       model_fn=model_fn, model_dir=FLAGS.model_dir,
