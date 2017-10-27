@@ -180,12 +180,15 @@ def map_ground_truth(ground_truth, num_classes):
 
 
 def pascal_voc_input_fn(is_training, num_epochs, batch_size, num_classes,
-                        data_dir=DEFAULT_RECORD_DIR):
+                        record_dir=DEFAULT_RECORD_DIR,
+                        data_dir=DEFAULT_DATA_DIR):
+  prepare_pascal_voc(data_dir, record_dir)
+
   def get_filenames():
     if is_training:
-      return os.path.join(data_dir, 'train.record')
+      return os.path.join(record_dir, 'train.record')
     else:
-      return os.path.join(data_dir, 'val.record')
+      return os.path.join(record_dir, 'val.record')
 
   height, width, channels = (500, 500, 3)
   out_shape = [height, width, channels]

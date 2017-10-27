@@ -56,6 +56,7 @@ _WEIGHT_DECAY = 2e-4
 
 _BATCHES_PER_EPOCH = _NUM_IMAGES['train'] // FLAGS.batch_size
 
+
 def main(unused_argv):
   # Using the Winograd non-fused algorithms provides a small performance boost.
   os.environ['TF_ENABLE_WINOGRAD_NONFUSED'] = '1'
@@ -85,12 +86,15 @@ def main(unused_argv):
     classifier.train(
         input_fn=lambda: input_fn(
             is_training=True, num_epochs=FLAGS.epochs_per_eval,
-            batch_size=FLAGS.batch_size, num_classes=_NUM_CLASSES),
+            batch_size=FLAGS.batch_size, num_classes=_NUM_CLASSES,
+            record_dir=FLAGS.data_dir, data_dir=FLAGS.data_dir),
         hooks=[logging_hook])
 
     # Evaluate the model and print results
     eval_results = classifier.evaluate(
-        input_fn=lambda: input_fn(is_training=False))
+        input_fn=lambda: input_fn(
+            is_training=False,
+            record_dir=FLAGS.data_dir, data_dir=FLAGS.data_dir))
     print(eval_results)
 
 
