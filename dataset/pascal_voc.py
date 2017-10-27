@@ -160,7 +160,7 @@ def preprocess_images(image, ground_truth, out_shape, is_training,
     combined = tf.image.random_flip_left_right(combined)
 
     image = combined[:, :, :depth_i]
-    ground_truth = combined[:, :, depth_i:] #+ ignore_label
+    ground_truth = combined[:, :, depth_i:]  # + ignore_label
 
   else:
     image = tf.image.resize_image_with_crop_or_pad(image, height, width)
@@ -177,6 +177,38 @@ def map_ground_truth(ground_truth, num_classes):
   grayscale = tf.squeeze(grayscale)
   label = tf.one_hot(grayscale, num_classes)
   return label
+
+
+def get_gt_img(label_argmax, num_images=1, num_classes=21):
+  import numpy as np
+  from PIL import Image
+
+  label_colours = [
+    # 0=background
+    (0, 0, 0),
+    # 1=aeroplane, 2=bicycle, 3=bird, 4=boat, 5=bottle
+    (128, 0, 0), (0, 128, 0), (128, 128, 0), (0, 0, 128), (128, 0, 128),
+    # 6=bus, 7=car, 8=cat, 9=chair, 10=cow
+    (0, 128, 128), (128, 128, 128), (64, 0, 0), (192, 0, 0), (64, 128, 0),
+    # 11=diningtable, 12=dog, 13=horse, 14=motorbike, 15=person
+    (192, 128, 0), (64, 0, 128), (192, 0, 128), (64, 128, 128), (192, 128, 128),
+    # 16=potted plant, 17=sheep, 18=sofa, 19=train, 20=tv/monitor
+    (0, 64, 0), (128, 64, 0), (0, 192, 0), (128, 192, 0), (0, 64, 128)]
+
+  n, h, w, c = label_argmax.shape
+  assert (n >= num_images), \
+    'Batch size %d should be greater or equal than number of images to save %d.' \
+    % (n, num_images)
+  outputs = np.zeros((num_images, h, w, 3), dtype=np.uint8)
+  for i in range(num_images):
+    img = Image.new('RGB', (len(label_argmax[i, 0]), len(label_argmax[i])))
+    pixels = img.load()
+    for j_, j in enumerate(label_argmax[i, :, :, 0]):
+      for k_, k in enumerate(j):
+        if k < num_classes:
+          pixels[k_, j_] = label_colours[k]
+    outputs[i] = np.array(img)
+  return outputs
 
 
 def pascal_voc_input_fn(is_training,

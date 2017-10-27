@@ -4,6 +4,7 @@ from __future__ import print_function
 
 from collections import OrderedDict
 
+from dataset.pascal_voc import get_gt_img
 from utils.layers import *
 
 
@@ -191,6 +192,9 @@ def unet_gen_model_fn(unet_depth,
     accuracy = tf.metrics.accuracy(
         tf.argmax(labels, axis=1), predictions['classes'])
     metrics = {'accuracy': accuracy}
+
+    result = get_gt_img(tf.argmax(labels, axis=1))
+    tf.summary.image('result', result, max_outputs=6)
 
     # Create a tensor named train_accuracy for logging purposes
     tf.identity(accuracy[1], name='train_accuracy')
