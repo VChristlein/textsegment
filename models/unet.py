@@ -130,12 +130,13 @@ def unet_gen_model_fn(unet_depth,
   img_depth = input_shape[2]
 
   def unet_model_fn(features, labels, mode):
+    batch_size = features.shape.as_list()[0]
     labels_argmax = tf.argmax(
       labels, axis=(1 if data_format == 'channels_first' else 3))
     tf.summary.image('images', features, max_outputs=6)
     tf.summary.image('ground truth',
                      get_gt_img(labels_argmax,
-                                num_images=_BATCH_SIZE,
+                                num_images=batch_size,
                                 num_classes=num_classes),
                      max_outputs=6)
 
