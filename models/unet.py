@@ -131,6 +131,10 @@ def unet_gen_model_fn(unet_depth,
 
   def unet_model_fn(features, labels, mode):
     tf.summary.image('images', features, max_outputs=6)
+    tf.summary.image('ground truth',
+                     get_gt_img(labels, num_images=_BATCH_SIZE,
+                                num_classes=num_classes),
+                     max_outputs=6)
 
     inputs = tf.reshape(features, [-1, img_height, img_width, img_depth])
     logits = unet(inputs=inputs, blocks=params, num_classes=num_classes,

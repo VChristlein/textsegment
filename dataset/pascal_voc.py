@@ -180,7 +180,6 @@ def map_ground_truth(ground_truth, num_classes):
 
 
 def get_gt_img(label_argmax, num_images=1, num_classes=21):
-  print("get_gt_img: ", label_argmax)
   label_colours = tf.constant([
     # 0=background
     [0, 0, 0],
@@ -193,7 +192,6 @@ def get_gt_img(label_argmax, num_images=1, num_classes=21):
     # 16=potted plant, 17=sheep, 18=sofa, 19=train, 20=tv/monitor
     [0, 64, 0], [128, 64, 0], [0, 192, 0], [128, 192, 0], [0, 64, 128]])
 
-  print('Palette: ', label_colours)
   n, h, w = label_argmax.shape.as_list()
   if n < num_images:
     raise ValueError(
@@ -202,9 +200,7 @@ def get_gt_img(label_argmax, num_images=1, num_classes=21):
   outputs = tf.gather_nd(
     params=tf.reshape(label_colours, [-1, 3]),
     indices=tf.reshape(label_argmax, [n, -1, 1]))
-  print('Out: ', outputs)
   outputs = tf.cast(tf.reshape(outputs, [n, h, w, 3]), tf.uint8)
-  print('Out: ', outputs)
   return outputs
 
 
