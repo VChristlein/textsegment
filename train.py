@@ -92,6 +92,7 @@ def main(unused_argv):
         hooks=[logging_hook])
 
     # Evaluate the model and print results
+    print('Evaluating model ...')
     eval_results = classifier.evaluate(
         input_fn=lambda: input_fn(
             is_training=False,

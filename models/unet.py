@@ -146,6 +146,7 @@ def unet_gen_model_fn(unet_depth,
                            axis=(1 if data_format == 'channels_first' else 3)),
       'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
     }
+    tf.summary.histogram('Prediction classes', predictions['classes'])
 
     if mode == tf.estimator.ModeKeys.PREDICT:
       return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
