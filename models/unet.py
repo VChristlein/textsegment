@@ -11,23 +11,23 @@ from utils.layers import *
 def unet_block(inputs, filters, keep_prob, process_fn, is_training,
                data_format):
   shortcut = batch_norm_relu(
-      inputs=inputs, is_training=is_training, data_format=data_format)
+    inputs=inputs, is_training=is_training, data_format=data_format)
 
   shortcut = conv2d_fixed_padding(
-      inputs=shortcut, filters=filters, kernel_size=3, strides=1,
-      use_bias=False, data_format=data_format)
+    inputs=shortcut, filters=filters, kernel_size=3, strides=1,
+    use_bias=False, data_format=data_format)
   shortcut = dropout(
-      inputs=shortcut, keep_prob=keep_prob, is_training=is_training)
+    inputs=shortcut, keep_prob=keep_prob, is_training=is_training)
   shortcut = batch_norm_relu(
-      inputs=shortcut, is_training=is_training, data_format=data_format)
+    inputs=shortcut, is_training=is_training, data_format=data_format)
 
   shortcut = conv2d_fixed_padding(
-      inputs=shortcut, filters=filters, kernel_size=3, strides=1,
-      use_bias=False, data_format=data_format)
+    inputs=shortcut, filters=filters, kernel_size=3, strides=1,
+    use_bias=False, data_format=data_format)
   shortcut = dropout(
-      inputs=shortcut, keep_prob=keep_prob, is_training=is_training)
+    inputs=shortcut, keep_prob=keep_prob, is_training=is_training)
   shortcut = batch_norm_relu(
-      inputs=shortcut, is_training=is_training, data_format=data_format)
+    inputs=shortcut, is_training=is_training, data_format=data_format)
 
   output = process_fn(inputs)
   return shortcut, output
@@ -43,45 +43,45 @@ def unet(inputs, blocks, num_classes, is_training, data_format=None):
 
   def pool(inputs):
     return max_pooling2d(
-        inputs=inputs, pool_size=2, strides=2, padding='SAME',
-        data_format=data_format)
+      inputs=inputs, pool_size=2, strides=2, padding='SAME',
+      data_format=data_format)
 
   def conv_t(inputs, filters, out_h, out_w=None):
     if out_w == None:
       out_w = out_h
     return conv2d_t(
-        inputs=inputs, filters=filters, out_h=out_h, out_w=out_w, kernel_size=2,
-        strides=2, data_format=data_format)
+      inputs=inputs, filters=filters, out_h=out_h, out_w=out_w, kernel_size=2,
+      strides=2, data_format=data_format)
 
   def conv_relu_out(inputs, filters):
     inputs = conv2d_fixed_padding(
-        inputs=inputs, filters=filters, kernel_size=1, strides=1,
-        use_bias=False, data_format=data_format)
+      inputs=inputs, filters=filters, kernel_size=1, strides=1,
+      use_bias=False, data_format=data_format)
     return batch_norm_relu(
-        inputs=inputs, is_training=is_training, data_format=data_format)
+      inputs=inputs, is_training=is_training, data_format=data_format)
 
   shortcuts = OrderedDict()
 
   # down sampling
   for i in range(blocks["size"]):
     shortcuts[i], net = unet_block(
-        inputs=net,
-        filters=blocks["filters"][i],
-        keep_prob=blocks["keep_prob"][i],
-        process_fn=pool,
-        is_training=is_training,
-        data_format=data_format)
+      inputs=net,
+      filters=blocks["filters"][i],
+      keep_prob=blocks["keep_prob"][i],
+      process_fn=pool,
+      is_training=is_training,
+      data_format=data_format)
 
   # up sampling
   for i in reversed(range(blocks["size"])):
     _, net = unet_block(
-        inputs=net,
-        filters=blocks["filters"][i] * 2,
-        keep_prob=blocks["keep_prob"][i],
-        process_fn=lambda inputs: conv_t(inputs, blocks["filters"][i],
-                                         shortcuts[i].shape[2]),
-        is_training=is_training,
-        data_format=data_format)
+      inputs=net,
+      filters=blocks["filters"][i] * 2,
+      keep_prob=blocks["keep_prob"][i],
+      process_fn=lambda inputs: conv_t(inputs, blocks["filters"][i],
+                                       shortcuts[i].shape[2]),
+      is_training=is_training,
+      data_format=data_format)
     if data_format == 'channels_first':
       concat_axis = 1
     else:
@@ -90,12 +90,12 @@ def unet(inputs, blocks, num_classes, is_training, data_format=None):
 
   # output block
   _, net = unet_block(
-      inputs=net,
-      filters=blocks["filters"][i],
-      keep_prob=blocks["keep_prob"][i],
-      process_fn=lambda inputs: conv_relu_out(inputs, num_classes),
-      is_training=is_training,
-      data_format=data_format)
+    inputs=net,
+    filters=blocks["filters"][i],
+    keep_prob=blocks["keep_prob"][i],
+    process_fn=lambda inputs: conv_relu_out(inputs, num_classes),
+    is_training=is_training,
+    data_format=data_format)
 
   return net
 
@@ -150,7 +150,7 @@ def unet_gen_model_fn(unet_depth,
     if data_format == 'channels_first':
       labels = tf.transpose(labels, [0, 3, 2, 1])
     cross_entropy = tf.losses.softmax_cross_entropy(
-        logits=logits, onehot_labels=labels)
+      logits=logits, onehot_labels=labels)
 
     # Create a tensor named cross_entropy for logging purposes.
     tf.identity(cross_entropy, name='cross_entropy')
@@ -158,7 +158,7 @@ def unet_gen_model_fn(unet_depth,
 
     # Add weight decay to the loss.
     loss = cross_entropy + weight_decay * tf.add_n(
-        [tf.nn.l2_loss(v) for v in tf.trainable_variables()])
+      [tf.nn.l2_loss(v) for v in tf.trainable_variables()])
 
     if mode == tf.estimator.ModeKeys.TRAIN:
       global_step = tf.train.get_or_create_global_step()
@@ -170,7 +170,7 @@ def unet_gen_model_fn(unet_depth,
         values = [initial_learning_rate * decay for decay in
                   [1, 0.1, 0.01, 0.001]]
         learning_rate = tf.train.piecewise_constant(
-            tf.cast(global_step, tf.int32), boundaries, values)
+          tf.cast(global_step, tf.int32), boundaries, values)
       else:
         learning_rate = tf.constant(initial_learning_rate)
 
@@ -179,8 +179,8 @@ def unet_gen_model_fn(unet_depth,
       tf.summary.scalar('learning_rate', learning_rate)
 
       optimizer = tf.train.MomentumOptimizer(
-          learning_rate=learning_rate,
-          momentum=momentum)
+        learning_rate=learning_rate,
+        momentum=momentum)
 
       # Batch norm requires update ops to be added as a dependency to the train_op
       update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -190,10 +190,11 @@ def unet_gen_model_fn(unet_depth,
       train_op = None
 
     accuracy = tf.metrics.accuracy(
-        tf.argmax(labels, axis=1), predictions['classes'])
+      tf.argmax(labels, axis=(1 if data_format == 'channels_first' else 3)),
+      predictions['classes'])
     metrics = {'accuracy': accuracy}
 
-    result = get_gt_img(tf.argmax(labels, axis=1))
+    result = get_gt_img(predictions['classes'])
     tf.summary.image('result', result, max_outputs=6)
 
     # Create a tensor named train_accuracy for logging purposes
@@ -201,11 +202,11 @@ def unet_gen_model_fn(unet_depth,
     tf.summary.scalar('train_accuracy', accuracy[1])
 
     return tf.estimator.EstimatorSpec(
-        mode=mode,
-        predictions=predictions,
-        loss=loss,
-        train_op=train_op,
-        eval_metric_ops=metrics)
+      mode=mode,
+      predictions=predictions,
+      loss=loss,
+      train_op=train_op,
+      eval_metric_ops=metrics)
 
   return unet_model_fn
 

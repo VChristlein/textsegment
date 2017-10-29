@@ -68,8 +68,8 @@ def dict_to_example(data):
     raise ValueError('Ground truth format not PNG', ground_truth.format)
   if image.size != ground_truth.size:
     raise ValueError(
-        'Train image and ground truth image should be of the same size',
-        image.size, ground_truth.size)
+      'Train image and ground truth image should be of the same size',
+      image.size, ground_truth.size)
 
   height, width = image.size
   channels = len(image.mode)
@@ -88,7 +88,7 @@ def dict_to_example(data):
 def label_map_dict_gen(data_dir, data_set='train'):
   if data_set not in ['train', 'trainval', 'val']:
     raise ValueError(
-        'data_set must be one of \'train\', \'trainval\' or \'val\'', data_set)
+      'data_set must be one of \'train\', \'trainval\' or \'val\'', data_set)
   data_dir = os.path.join(data_dir, 'VOCdevkit', 'VOC2012')
   label_map_path = os.path.join(data_dir, 'ImageSets', 'Segmentation')
   list_path = os.path.join(label_map_path, data_set + '.txt')
@@ -125,14 +125,14 @@ def prepare_pascal_voc(data_dir, out_dir, force=False):
     maybe_download_pascal_voc(data_dir, force=force)
 
     train_writer = tf.python_io.TFRecordWriter(
-        os.path.join(out_dir, train_record))
+      os.path.join(out_dir, train_record))
     for data in label_map_dict_gen(data_dir, 'train'):
       example = dict_to_example(data)
       train_writer.write(example.SerializeToString())
     train_writer.close()
 
     val_writer = tf.python_io.TFRecordWriter(
-        os.path.join(out_dir, val_record))
+      os.path.join(out_dir, val_record))
     for data in label_map_dict_gen(data_dir, 'val'):
       example = dict_to_example(data)
       val_writer.write(example.SerializeToString())
@@ -153,7 +153,7 @@ def preprocess_images(image, ground_truth, out_shape, is_training,
     combined = tf.concat([image, ground_truth], axis=2)
 
     combined = tf.image.resize_image_with_crop_or_pad(
-        combined, height + 72, width + 72)
+      combined, height + 72, width + 72)
 
     combined = tf.random_crop(combined, [height, width, depth_i + depth_gt])
 
@@ -165,7 +165,7 @@ def preprocess_images(image, ground_truth, out_shape, is_training,
   else:
     image = tf.image.resize_image_with_crop_or_pad(image, height, width)
     ground_truth = tf.image.resize_image_with_crop_or_pad(
-        ground_truth, height, width)
+      ground_truth, height, width)
 
   image = tf.image.convert_image_dtype(image, dtype=tf.float32)
   label = map_ground_truth(ground_truth, num_classes)
@@ -180,34 +180,31 @@ def map_ground_truth(ground_truth, num_classes):
 
 
 def get_gt_img(label_argmax, num_images=1, num_classes=21):
-  import numpy as np
-  from PIL import Image
-
-  label_colours = [
+  print("get_gt_img: ", label_argmax)
+  label_colours = tf.constant([
     # 0=background
-    (0, 0, 0),
+    [0, 0, 0],
     # 1=aeroplane, 2=bicycle, 3=bird, 4=boat, 5=bottle
-    (128, 0, 0), (0, 128, 0), (128, 128, 0), (0, 0, 128), (128, 0, 128),
+    [128, 0, 0], [0, 128, 0], [128, 128, 0], [0, 0, 128], [128, 0, 128],
     # 6=bus, 7=car, 8=cat, 9=chair, 10=cow
-    (0, 128, 128), (128, 128, 128), (64, 0, 0), (192, 0, 0), (64, 128, 0),
+    [0, 128, 128], [128, 128, 128], [64, 0, 0], [192, 0, 0], [64, 128, 0],
     # 11=diningtable, 12=dog, 13=horse, 14=motorbike, 15=person
-    (192, 128, 0), (64, 0, 128), (192, 0, 128), (64, 128, 128), (192, 128, 128),
+    [192, 128, 0], [64, 0, 128], [192, 0, 128], [64, 128, 128], [192, 128, 128],
     # 16=potted plant, 17=sheep, 18=sofa, 19=train, 20=tv/monitor
-    (0, 64, 0), (128, 64, 0), (0, 192, 0), (128, 192, 0), (0, 64, 128)]
+    [0, 64, 0], [128, 64, 0], [0, 192, 0], [128, 192, 0], [0, 64, 128]])
 
-  n, h, w, c = label_argmax.shape
-  assert (n >= num_images), \
-    'Batch size %d should be greater or equal than number of images to save %d.' \
-    % (n, num_images)
-  outputs = np.zeros((num_images, h, w, 3), dtype=np.uint8)
-  for i in range(num_images):
-    img = Image.new('RGB', (len(label_argmax[i, 0]), len(label_argmax[i])))
-    pixels = img.load()
-    for j_, j in enumerate(label_argmax[i, :, :, 0]):
-      for k_, k in enumerate(j):
-        if k < num_classes:
-          pixels[k_, j_] = label_colours[k]
-    outputs[i] = np.array(img)
+  print('Palette: ', label_colours)
+  n, h, w = label_argmax.shape.as_list()
+  if n < num_images:
+    raise ValueError(
+      'Batch size %d should be greater or equal than number of images to save %d.' \
+      % (n, num_images))
+  outputs = tf.gather_nd(
+    params=tf.reshape(label_colours, [-1, 3]),
+    indices=tf.reshape(label_argmax, [n, -1, 1]))
+  print('Out: ', outputs)
+  outputs = tf.cast(tf.reshape(outputs, [n, h, w, 3]), tf.uint8)
+  print('Out: ', outputs)
   return outputs
 
 
@@ -261,7 +258,7 @@ def pascal_voc_input_fn(is_training,
                       format=parsed['ground_truth/format'])
 
     return preprocess_images(
-        image, gt, [500, 500, channels], is_training, num_classes)
+      image, gt, [500, 500, channels], is_training, num_classes)
 
   data_set = data_set.map(lambda value: dataset_parser(value))
   data_set = data_set.shuffle(buffer_size=10000)
