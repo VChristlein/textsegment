@@ -63,16 +63,16 @@ def main(unused_argv):
   run_config = tf.estimator.RunConfig().replace(save_checkpoints_secs=1000)
 
   model_fn = model_fn_generator(
-      unet_depth=FLAGS.unet_depth,
-      num_classes=_NUM_CLASSES,
-      input_shape=[_HEIGHT, _WIDTH, _DEPTH],
-      initial_learning_rate=_INITIAL_LEARNING_RATE,
-      momentum=_MOMENTUM,
-      weight_decay=_WEIGHT_DECAY)
+    unet_depth=FLAGS.unet_depth,
+    num_classes=_NUM_CLASSES,
+    input_shape=[_HEIGHT, _WIDTH, _DEPTH],
+    initial_learning_rate=_INITIAL_LEARNING_RATE,
+    momentum=_MOMENTUM,
+    weight_decay=_WEIGHT_DECAY)
 
   classifier = tf.estimator.Estimator(
-      model_fn=model_fn, model_dir=FLAGS.model_dir,
-      config=run_config)
+    model_fn=model_fn, model_dir=FLAGS.model_dir,
+    config=run_config)
 
   for _ in range(FLAGS.train_epochs // FLAGS.epochs_per_eval):
     tensors_to_log = {
@@ -82,21 +82,21 @@ def main(unused_argv):
     }
 
     logging_hook = tf.train.LoggingTensorHook(
-        tensors=tensors_to_log, every_n_iter=100)
+      tensors=tensors_to_log, every_n_iter=100)
 
     classifier.train(
-        input_fn=lambda: input_fn(
-            is_training=True, num_epochs=FLAGS.epochs_per_eval,
-            batch_size=FLAGS.batch_size, num_classes=_NUM_CLASSES,
-            record_dir=FLAGS.data_dir, data_dir=FLAGS.data_dir),
-        hooks=[logging_hook])
+      input_fn=lambda: input_fn(
+        is_training=True, num_epochs=FLAGS.epochs_per_eval,
+        batch_size=FLAGS.batch_size, num_classes=_NUM_CLASSES,
+        record_dir=FLAGS.data_dir, data_dir=FLAGS.data_dir),
+      hooks=[logging_hook])
 
     # Evaluate the model and print results
     print('Evaluating model ...')
     eval_results = classifier.evaluate(
-        input_fn=lambda: input_fn(
-            is_training=False,
-            record_dir=FLAGS.data_dir, data_dir=FLAGS.data_dir))
+      input_fn=lambda: input_fn(
+        is_training=False,
+        record_dir=FLAGS.data_dir, data_dir=FLAGS.data_dir))
     print(eval_results)
 
 

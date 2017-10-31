@@ -131,24 +131,20 @@ def unet_model_fn_gen(unet_depth,
   img_depth = input_shape[2]
 
   def unet_model_fn(features, labels, mode):
-    batch_size = features.shape.as_list()[0]
-    labels_argmax = tf.argmax(
-      labels, axis=(1 if data_format == 'channels_first' else 3))
-    # tf.summary.image('images', features, max_outputs=6)
-    # tf.summary.image('ground truth',
-    #                  get_gt_img(labels_argmax,
-    #                             num_images=batch_size,
-    #                             num_classes=num_classes),
-    #                  max_outputs=6)
+    if data_format == 'channels_first':
+      labels = tf.transpose(labels, [0, 3, 2, 1])
+      axis = 1
+    else:
+      axis = 3
 
     inputs = tf.reshape(features, [-1, img_height, img_width, img_depth])
     logits = unet(inputs=inputs, blocks=params, num_classes=num_classes,
                   is_training=mode == tf.estimator.ModeKeys.TRAIN,
                   data_format=data_format)
+    labels_argmax = tf.argmax(labels, axis=axis)
 
     predictions = {
-      'classes': tf.argmax(logits,
-                           axis=(1 if data_format == 'channels_first' else 3)),
+      'classes': tf.argmax(logits, axis=axis),
       'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
     }
     tf.summary.histogram('Prediction_classes', predictions['classes'])
@@ -157,8 +153,6 @@ def unet_model_fn_gen(unet_depth,
       return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
     # Calculate loss, which includes softmax cross entropy and L2 regularization.
-    if data_format == 'channels_first':
-      labels = tf.transpose(labels, [0, 3, 2, 1])
     cross_entropy = tf.losses.softmax_cross_entropy(
       logits=logits, onehot_labels=labels)
 
@@ -217,46 +211,3 @@ def unet_model_fn_gen(unet_depth,
       eval_metric_ops=metrics)
 
   return unet_model_fn
-
-
-# if __name__ == '__main__':
-#   from dataset.pascal_voc import pascal_voc_input_fn
-#   from dataset.pascal_voc import get_gt_img
-#
-#   # test
-#   _HEIGHT = 500
-#   _WIDTH = 500
-#   _DEPTH = 3
-#   _NUM_CLASSES = 21
-#   _UNET_SIZE = 3
-#
-#   _MODEL_DIR = '/tmp/unet_model'
-#   _DATA_DIR = '/tmp/unet_data'
-#
-#   _NUM_IMAGES = {
-#     'train': 1464,
-#     'validation': 1449,
-#   }
-#
-#   with tf.Session().as_default() as sess:
-#     images, labels, gt = pascal_voc_input_fn(
-#       is_training=False, record_dir=_DATA_DIR, data_dir=_DATA_DIR)
-#
-#     print(images, labels, gt)
-#     tf.summary.image('image/original', images)
-#     labels_argmax = tf.argmax(labels, axis=3)
-#     print(labels_argmax)
-#     labels_string = tf.as_string(labels)
-#     print(labels_string)
-#     tf.summary.tensor_summary('gt/argmax', labels_argmax)
-#     tf.summary.image('gt/reconstructed', get_gt_img(labels_argmax))
-#     tf.summary.image('gt/original', gt)
-#
-#     summary_op = tf.summary.merge_all()
-#     writer = tf.summary.FileWriter(_MODEL_DIR, sess.graph)
-#     tf.global_variables_initializer().run()
-#
-#     # summary = sess.run(summary_op)
-#     with tf.control_dependencies([images, labels, gt]):
-#       summary_eval = sess.run(summary_op)
-#     writer.add_summary(summary_eval, 0)
