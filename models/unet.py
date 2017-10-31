@@ -4,8 +4,9 @@ from __future__ import print_function
 
 from collections import OrderedDict
 
-from dataset.pascal_voc import get_gt_img
 from utils.layers import *
+from dataset.pascal_voc import get_gt_img
+from dataset.pascal_voc import get_pascal_palette
 
 
 def unet_block(inputs, filters, keep_prob, process_fn, is_training,
@@ -100,7 +101,7 @@ def unet(inputs, blocks, num_classes, is_training, data_format=None):
   return net
 
 
-def unet_gen_model_fn(unet_depth,
+def unet_model_fn_gen(unet_depth,
                       num_classes,
                       input_shape,
                       initial_learning_rate=0.1,
@@ -117,9 +118,9 @@ def unet_gen_model_fn(unet_depth,
   }
 
   if unet_depth not in model_params:
-    raise ValueError('Not a valid unet size.', unet_size)
+    raise ValueError('Not a valid unet size.', unet_depth)
 
-  params = model_params[unet_size]
+  params = model_params[unet_depth]
 
   if data_format is None:
     data_format = (
@@ -133,12 +134,12 @@ def unet_gen_model_fn(unet_depth,
     batch_size = features.shape.as_list()[0]
     labels_argmax = tf.argmax(
       labels, axis=(1 if data_format == 'channels_first' else 3))
-    tf.summary.image('images', features, max_outputs=6)
-    tf.summary.image('ground truth',
-                     get_gt_img(labels_argmax,
-                                num_images=batch_size,
-                                num_classes=num_classes),
-                     max_outputs=6)
+    # tf.summary.image('images', features, max_outputs=6)
+    # tf.summary.image('ground truth',
+    #                  get_gt_img(labels_argmax,
+    #                             num_images=batch_size,
+    #                             num_classes=num_classes),
+    #                  max_outputs=6)
 
     inputs = tf.reshape(features, [-1, img_height, img_width, img_depth])
     logits = unet(inputs=inputs, blocks=params, num_classes=num_classes,
@@ -150,7 +151,7 @@ def unet_gen_model_fn(unet_depth,
                            axis=(1 if data_format == 'channels_first' else 3)),
       'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
     }
-    tf.summary.histogram('Prediction classes', predictions['classes'])
+    tf.summary.histogram('Prediction_classes', predictions['classes'])
 
     if mode == tf.estimator.ModeKeys.PREDICT:
       return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
@@ -201,8 +202,8 @@ def unet_gen_model_fn(unet_depth,
     accuracy = tf.metrics.accuracy(labels_argmax, predictions['classes'])
     metrics = {'accuracy': accuracy}
 
-    result = get_gt_img(predictions['classes'])
-    tf.summary.image('result', result, max_outputs=6)
+    result = get_gt_img(predictions['classes'], get_pascal_palette())
+    tf.summary.image('ground_truth/predicted', result, max_outputs=6)
 
     # Create a tensor named train_accuracy for logging purposes
     tf.identity(accuracy[1], name='train_accuracy')
@@ -218,22 +219,44 @@ def unet_gen_model_fn(unet_depth,
   return unet_model_fn
 
 
-# test
-_HEIGHT = 500
-_WIDTH = 500
-_DEPTH = 3
-_BATCH_SIZE = 20
-
-unet_size = 4
-model_params = {
-  2: {"size": 2, "filters": [64, 128], "keep_prob": [0.75, 0.75]},
-  3: {"size": 3, "filters": [64, 128, 256], "keep_prob": [0.75, 0.75, 0.75]},
-  4: {"size": 4, "filters": [64, 128, 256, 512],
-      "keep_prob": [0.75, 0.75, 0.75, 0.75]}
-}
-params = model_params[unet_size]
-features = tf.placeholder(tf.float32, [_HEIGHT, _WIDTH, _DEPTH])
-inputs = tf.reshape(features, [-1, _HEIGHT, _WIDTH, _DEPTH])
-# inputs = tf.placeholder(tf.float32, [_BATCH_SIZE, _HEIGHT, _WIDTH, _DEPTH])
-net = unet(inputs, blocks=params, num_classes=21, is_training=True,
-           data_format='channels_first')
+# if __name__ == '__main__':
+#   from dataset.pascal_voc import pascal_voc_input_fn
+#   from dataset.pascal_voc import get_gt_img
+#
+#   # test
+#   _HEIGHT = 500
+#   _WIDTH = 500
+#   _DEPTH = 3
+#   _NUM_CLASSES = 21
+#   _UNET_SIZE = 3
+#
+#   _MODEL_DIR = '/tmp/unet_model'
+#   _DATA_DIR = '/tmp/unet_data'
+#
+#   _NUM_IMAGES = {
+#     'train': 1464,
+#     'validation': 1449,
+#   }
+#
+#   with tf.Session().as_default() as sess:
+#     images, labels, gt = pascal_voc_input_fn(
+#       is_training=False, record_dir=_DATA_DIR, data_dir=_DATA_DIR)
+#
+#     print(images, labels, gt)
+#     tf.summary.image('image/original', images)
+#     labels_argmax = tf.argmax(labels, axis=3)
+#     print(labels_argmax)
+#     labels_string = tf.as_string(labels)
+#     print(labels_string)
+#     tf.summary.tensor_summary('gt/argmax', labels_argmax)
+#     tf.summary.image('gt/reconstructed', get_gt_img(labels_argmax))
+#     tf.summary.image('gt/original', gt)
+#
+#     summary_op = tf.summary.merge_all()
+#     writer = tf.summary.FileWriter(_MODEL_DIR, sess.graph)
+#     tf.global_variables_initializer().run()
+#
+#     # summary = sess.run(summary_op)
+#     with tf.control_dependencies([images, labels, gt]):
+#       summary_eval = sess.run(summary_op)
+#     writer.add_summary(summary_eval, 0)

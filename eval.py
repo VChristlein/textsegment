@@ -7,7 +7,7 @@ import os
 
 import tensorflow as tf
 
-from models.unet import unet_gen_model_fn as model_fn_generator
+from models.unet import unet_model_fn_gen as model_fn_generator
 from dataset.pascal_voc import pascal_voc_input_fn as input_fn
 
 parser = argparse.ArgumentParser()

@@ -139,10 +139,9 @@ def prepare_pascal_voc(data_dir, out_dir, force=False):
       val_writer.close()
 
 
-def preprocess_images(image, ground_truth, out_shape, is_training,
-                      num_classes, ignore_label=255):
-  height = out_shape[0]
-  width = out_shape[1]
+def preprocess_images(image, ground_truth, height, width, is_training,
+                      ignore_label=255):
+  # TODO: ignore void labeled data
   depth_i = image.shape.as_list()[2]
   depth_gt = ground_truth.shape.as_list()[2]
 
@@ -168,38 +167,72 @@ def preprocess_images(image, ground_truth, out_shape, is_training,
       ground_truth, height, width)
 
   image = tf.image.convert_image_dtype(image, dtype=tf.float32)
-  label = map_ground_truth(ground_truth, num_classes)
-  return image, label
+  label = map_ground_truth(ground_truth, get_pascal_palette())
+  return image, label, ground_truth
 
 
-def map_ground_truth(ground_truth, num_classes):
-  grayscale = tf.image.rgb_to_grayscale(ground_truth)
-  grayscale = tf.squeeze(grayscale)
-  label = tf.one_hot(grayscale, num_classes)
+def map_ground_truth(ground_truth, palette):
+  """
+  :param ground_truth: Rank 3 or 4 tensor: [(batch_size,) height, width, depth]
+  :param num_classes: Number of classes for one_hot
+  :return: one hot label
+  """
+  has_batch_size = True
+  if len(ground_truth.shape) == 3:
+    has_batch_size = False
+    ground_truth = tf.expand_dims(ground_truth, axis=0)
+  ground_truth = tf.cast(ground_truth, tf.int32)
+  n, h, w, c = ground_truth.shape.as_list()
+  num_classes, c_p = palette.shape.as_list()
+  if c != c_p:
+    raise ValueError(
+      'Ground truth channels (%ds) do not match palette channels (%ds)' % (
+        c, c_p))
+  equality = tf.equal(tf.reshape(ground_truth, [n, h, w, 1, c]),
+                      tf.reshape(palette, [num_classes, c]))
+  label = tf.cast(tf.reduce_all(equality, axis=-1), tf.int32)
+  if not has_batch_size:
+    label = tf.squeeze(label, axis=0)
   return label
 
 
-def get_gt_img(label_argmax, num_images=1, num_classes=21):
-  label_colours = tf.constant([
-    # 0=background
-    [0, 0, 0],
-    # 1=aeroplane, 2=bicycle, 3=bird, 4=boat, 5=bottle
-    [128, 0, 0], [0, 128, 0], [128, 128, 0], [0, 0, 128], [128, 0, 128],
-    # 6=bus, 7=car, 8=cat, 9=chair, 10=cow
-    [0, 128, 128], [128, 128, 128], [64, 0, 0], [192, 0, 0], [64, 128, 0],
-    # 11=diningtable, 12=dog, 13=horse, 14=motorbike, 15=person
-    [192, 128, 0], [64, 0, 128], [192, 0, 128], [64, 128, 128], [192, 128, 128],
-    # 16=potted plant, 17=sheep, 18=sofa, 19=train, 20=tv/monitor
-    [0, 64, 0], [128, 64, 0], [0, 192, 0], [128, 192, 0], [0, 64, 128]])
+def get_pascal_palette():
+  return tf.constant([
+    [0, 0, 0],  # 0=background
+    [128, 0, 0],  # 1=aeroplane
+    [0, 128, 0],  # 2=bicycle
+    [128, 128, 0],  # 3=bird
+    [0, 0, 128],  # 4=boat
+    [128, 0, 128],  # 5=bottle
+    [0, 128, 128],  # 6=bus
+    [128, 128, 128],  # 7=car
+    [64, 0, 0],  # 8=cat
+    [192, 0, 0],  # 9=chair#
+    [64, 128, 0],  # 10=cow
+    [192, 128, 0],  # 11=diningtable
+    [64, 0, 128],  # 12=dog
+    [192, 0, 128],  # 13=horse
+    [64, 128, 128],  # 14=motorbike
+    [192, 128, 128],  # 15=person
+    [0, 64, 0],  # 16=potted plant
+    [128, 64, 0],  # 17=sheep
+    [0, 192, 0],  # 18=sofa
+    [128, 192, 0],  # 19=train
+    [0, 64, 128]])  # 20=tv/monitor
 
-  n, h, w = label_argmax.shape.as_list()
+
+def get_gt_img(logits_argmax, palette, num_images=1):
+  if len(logits_argmax.shape) != 3:
+    raise ValueError(
+      'logits argmax should be a tensor of rank 3 with the shape [batch_size, height, width].')
+  n, h, w = logits_argmax.shape.as_list()
   if n < num_images:
     raise ValueError(
       'Batch size %d should be greater or equal than number of images to save %d.' \
       % (n, num_images))
   outputs = tf.gather_nd(
-    params=tf.reshape(label_colours, [-1, 3]),
-    indices=tf.reshape(label_argmax, [n, -1, 1]))
+    params=tf.reshape(palette, [-1, 3]),
+    indices=tf.reshape(logits_argmax, [n, -1, 1]))
   outputs = tf.cast(tf.reshape(outputs, [n, h, w, 3]), tf.uint8)
   return outputs
 
@@ -237,37 +270,66 @@ def pascal_voc_input_fn(is_training,
                                                 default_value='')}
     parsed = tf.parse_single_example(record, keys_to_features)
 
-    def decode_image(bytes, out_shape, channels=3, format=tf.constant('JPEG')):
+    def decode_image(bytes, channels=3, format=tf.constant('JPEG')):
       decoded = tf.cond(tf.equal(format, tf.constant('JPEG')),
                         lambda: tf.image.decode_jpeg(bytes, channels=channels),
                         lambda: tf.image.decode_png(bytes, channels=channels))
       return decoded
 
     image = decode_image(bytes=parsed['image/encoded'],
-                         out_shape=out_shape,
                          channels=channels,
                          format=parsed['image/format'])
 
     gt = decode_image(bytes=parsed['ground_truth/encoded'],
-                      out_shape=out_shape,
                       channels=channels,
                       format=parsed['ground_truth/format'])
 
-    return preprocess_images(
-      image, gt, [500, 500, channels], is_training, num_classes)
+    return preprocess_images(image, gt, height, width, is_training, num_classes)
 
   data_set = data_set.map(lambda value: dataset_parser(value))
   data_set = data_set.shuffle(buffer_size=10000)
   data_set = data_set.repeat(num_epochs)
 
   iterator = data_set.batch(batch_size).make_one_shot_iterator()
-  images, labels = iterator.get_next()
+  images, labels, gt = iterator.get_next()
   images = tf.reshape(images, [batch_size, height, width, channels])
   labels = tf.reshape(labels, [batch_size, height, width, num_classes])
+  gt = tf.reshape(gt, [batch_size, height, width, channels])
+
+  tf.summary.image('image/original', images, max_outputs=6)
+  tf.summary.image('ground_truth/original', gt, max_outputs=6)
 
   return images, labels
 
 
 # Test
+def test_get_gt_img_map_ground_truth(sess):
+  print('Testing get_gt_img() and map_ground_truth() ...')
+
+  import tensorflow as tf
+  import numpy as np
+
+  # We build a random logits tensor of the requested size
+  n = 2  # batch size
+  h = w = 3  # image height, width
+  num_classes = 21
+  np.random.seed(1234)
+  logits = np.random.random_sample(
+    (n, h, w, num_classes))  # [n, h, w, num_classes]
+  logits_argmax = tf.constant(np.argmax(logits, axis=3),
+                              name='argmax')  # [n, h, w]
+
+  palette = get_pascal_palette()  # [num_classes, c], c = 3
+
+  reconstructed_gt = get_gt_img(logits_argmax, palette)  # [n, h, w, c]
+  labels = map_ground_truth(reconstructed_gt, palette)  # [n, h, w, num_classes]
+  labels_argmax = tf.argmax(labels, axis=3)  # [n, h, w]
+  assert_op = tf.assert_equal(logits_argmax, labels_argmax)
+
+  sess.run(assert_op)
+  print('OK!')
+
+
 if __name__ == '__main__':
-  prepare_pascal_voc(DEFAULT_DATA_DIR, DEFAULT_RECORD_DIR)
+  sess = tf.InteractiveSession()
+  test_get_gt_img_map_ground_truth(sess)
