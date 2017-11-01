@@ -296,6 +296,10 @@ def pascal_voc_input_fn(is_training,
   labels = tf.reshape(labels, [batch_size, height, width, num_classes])
   gt = tf.reshape(gt, [batch_size, height, width, channels])
 
+  tf.summary.image('ground_truth/reconstructed',
+                   get_gt_img(tf.argmax(labels, axis=3), get_pascal_palette()),
+                   max_outputs=6)
+
   tf.summary.image('image/original', images, max_outputs=6)
   tf.summary.image('ground_truth/original', gt, max_outputs=6)
 
