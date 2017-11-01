@@ -287,7 +287,7 @@ def pascal_voc_input_fn(is_training,
     return preprocess_images(image, gt, height, width, is_training, num_classes)
 
   data_set = data_set.map(lambda value: dataset_parser(value))
-  data_set = data_set.shuffle(buffer_size=10000)
+  data_set = data_set.shuffle(buffer_size=200)
   data_set = data_set.repeat(num_epochs)
 
   iterator = data_set.batch(batch_size).make_one_shot_iterator()

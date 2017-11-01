@@ -142,17 +142,24 @@ def unet_model_fn_gen(unet_depth,
                   is_training=mode == tf.estimator.ModeKeys.TRAIN,
                   data_format=data_format)
     labels_argmax = tf.argmax(labels, axis=axis)
+    mean, var = tf.nn.moments(labels_argmax)
+    tf.summary.scalar('predictions/mean', mean)
+    tf.summary.scalar('predictions/var', var)
 
     predictions = {
       'classes': tf.argmax(logits, axis=axis),
       'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
     }
-    tf.summary.histogram('Prediction_classes', predictions['classes'])
+    mean_p, var_p = tf.nn.moments(predictions['classes'])
+    tf.summary.scalar('predictions/mean', mean_p)
+    tf.summary.scalar('predictions/var', var_p)
 
     if mode == tf.estimator.ModeKeys.PREDICT:
       return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
     # Calculate loss, which includes softmax cross entropy and L2 regularization.
+    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, labels)
+    cross_entropy = tf.losses.sparse_softmax_cross_entropy()
     cross_entropy = tf.losses.softmax_cross_entropy(
       logits=logits, onehot_labels=labels)
 
