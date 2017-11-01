@@ -142,15 +142,17 @@ def unet_model_fn_gen(unet_depth,
                   is_training=mode == tf.estimator.ModeKeys.TRAIN,
                   data_format=data_format)
     labels_argmax = tf.argmax(labels, axis=axis)
-    mean, var = tf.nn.moments(labels_argmax)
-    tf.summary.scalar('predictions/mean', mean)
-    tf.summary.scalar('predictions/var', var)
+    mean = tf.reduce_mean(labels_argmax)
+    var = tf.image.total_variation(labels_argmax)
+    tf.summary.scalar('labels/mean', mean)
+    tf.summary.scalar('labels/var', var)
 
     predictions = {
       'classes': tf.argmax(logits, axis=axis),
       'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
     }
-    mean_p, var_p = tf.nn.moments(predictions['classes'])
+    mean_p = tf.reduce_mean(labels_argmax)
+    var_p = tf.image.total_variation(labels_argmax)
     tf.summary.scalar('predictions/mean', mean_p)
     tf.summary.scalar('predictions/var', var_p)
 
@@ -158,8 +160,6 @@ def unet_model_fn_gen(unet_depth,
       return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
     # Calculate loss, which includes softmax cross entropy and L2 regularization.
-    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, labels)
-    cross_entropy = tf.losses.sparse_softmax_cross_entropy()
     cross_entropy = tf.losses.softmax_cross_entropy(
       logits=logits, onehot_labels=labels)
 
