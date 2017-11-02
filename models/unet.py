@@ -141,20 +141,23 @@ def unet_model_fn_gen(unet_depth,
     logits = unet(inputs=inputs, blocks=params, num_classes=num_classes,
                   is_training=mode == tf.estimator.ModeKeys.TRAIN,
                   data_format=data_format)
-    labels_argmax = tf.argmax(labels, axis=axis)
-    mean = tf.reduce_mean(labels_argmax)
-    var = tf.image.total_variation(labels_argmax)
-    tf.summary.scalar('labels/mean', mean)
-    tf.summary.scalar('labels/var', var)
+    logits_argmax = tf.argmax(logits, axis=axis)
+    mean_logits = tf.reduce_mean(logits_argmax)
+    var_logits = tf.image.total_variation(logits_argmax)
+    tf.summary.scalar('logits/mean', mean_logits)
+    tf.summary.scalar('logits/var', var_logits)
+    tf.summary.histogram('logits', logits_argmax)
 
     predictions = {
-      'classes': tf.argmax(logits, axis=axis),
+      'classes': logits_argmax,
       'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
     }
-    mean_p = tf.reduce_mean(labels_argmax)
-    var_p = tf.image.total_variation(labels_argmax)
-    tf.summary.scalar('predictions/mean', mean_p)
-    tf.summary.scalar('predictions/var', var_p)
+    labels_argmax = tf.argmax(labels, axis=axis)
+    mean_labels = tf.reduce_mean(labels_argmax)
+    var_labels = tf.image.total_variation(labels_argmax)
+    tf.summary.scalar('predictions/mean', mean_labels)
+    tf.summary.scalar('predictions/var', var_labels)
+    tf.summary.histogram('labels', labels_argmax)
 
     if mode == tf.estimator.ModeKeys.PREDICT:
       return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
