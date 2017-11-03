@@ -28,7 +28,7 @@ parser.add_argument('--train_epochs', type=int, default=250,
 parser.add_argument('--epochs_per_eval', type=int, default=10,
                     help='The number of batches to run in between evaluations.')
 
-parser.add_argument('--batch_size', type=int, default=20,
+parser.add_argument('--batch_size', type=int, default=1,
                     help='The number of images per batch.')
 
 FLAGS = parser.parse_args()
