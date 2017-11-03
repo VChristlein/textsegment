@@ -163,8 +163,9 @@ def unet_model_fn_gen(unet_depth,
       return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
     # Calculate loss, which includes softmax cross entropy and L2 regularization.
-    cross_entropy = tf.losses.softmax_cross_entropy(
-      logits=logits, onehot_labels=labels)
+    cross_entropy = tf.losses.sparse_softmax_cross_entropy(
+      logits=tf.reshape(logits, [-1, num_classes]), 
+      labels=tf.reshape(labels_argmax, [-1]))
 
     # Create a tensor named cross_entropy for logging purposes.
     tf.identity(cross_entropy, name='cross_entropy')
