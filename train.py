@@ -33,11 +33,12 @@ parser.add_argument('--batch_size', type=int, default=1,
 
 FLAGS = parser.parse_args()
 
+
+_NUM_CLASSES = 21
+
 _HEIGHT = 500
 _WIDTH = 500
 _DEPTH = 3
-_NUM_CLASSES = 21
-
 _NUM_IMAGES = {
   'train': 1464,
   'validation': 1449,
@@ -45,12 +46,10 @@ _NUM_IMAGES = {
 
 # Scale the learning rate linearly with the batch size. When the batch size is
 # 128, the learning rate should be 0.1.
-_INITIAL_LEARNING_RATE = 0.1 * FLAGS.batch_size / 128
+_INITIAL_LEARNING_RATE = 0.1 * FLAGS.batch_size / 64
 _MOMENTUM = 0.9
 
-# We use a weight decay of 0.0002, which performs better than the 0.0001 that
-# was originally suggested.
-_WEIGHT_DECAY = 2e-4
+_WEIGHT_DECAY = 2e-5 / (2 * _NUM_IMAGES['train'])
 
 _BATCHES_PER_EPOCH = _NUM_IMAGES['train'] // FLAGS.batch_size
 
@@ -67,6 +66,7 @@ def main(unused_argv):
     num_classes=_NUM_CLASSES,
     input_shape=[_HEIGHT, _WIDTH, _DEPTH],
     initial_learning_rate=_INITIAL_LEARNING_RATE,
+    learning_rate_decay_every_n_steps=1e3,
     momentum=_MOMENTUM,
     weight_decay=_WEIGHT_DECAY)
 
@@ -82,13 +82,15 @@ def main(unused_argv):
     }
 
     logging_hook = tf.train.LoggingTensorHook(
-      tensors=tensors_to_log, every_n_iter=100)
+      tensors=tensors_to_log, every_n_iter=1000)
 
     classifier.train(
       input_fn=lambda: input_fn(
-        is_training=True, num_epochs=FLAGS.epochs_per_eval,
-        batch_size=FLAGS.batch_size, num_classes=_NUM_CLASSES,
-        record_dir=FLAGS.data_dir, data_dir=FLAGS.data_dir),
+        is_training=True, 
+        num_epochs=FLAGS.epochs_per_eval,
+        batch_size=FLAGS.batch_size,
+        record_dir=FLAGS.data_dir, 
+        data_dir=FLAGS.data_dir),
       hooks=[logging_hook])
 
     # Evaluate the model and print results
@@ -96,7 +98,8 @@ def main(unused_argv):
     eval_results = classifier.evaluate(
       input_fn=lambda: input_fn(
         is_training=False,
-        record_dir=FLAGS.data_dir, data_dir=FLAGS.data_dir))
+        record_dir=FLAGS.data_dir, 
+        data_dir=FLAGS.data_dir))
     print(eval_results)
 
 

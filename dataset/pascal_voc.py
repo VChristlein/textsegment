@@ -141,14 +141,10 @@ def prepare_pascal_voc(data_dir, out_dir, force=False):
 
 def preprocess_images(image, ground_truth, height, width, is_training,
                       ignore_label=255):
-  # TODO: ignore void labeled data
   depth_i = image.shape.as_list()[2]
   depth_gt = ground_truth.shape.as_list()[2]
 
   if is_training:
-    # ignore_label needs to be subtracted and later added due to 0 padding.
-    # ground_truth -= ignore_label
-
     combined = tf.concat([image, ground_truth], axis=2)
 
     combined = tf.image.resize_image_with_crop_or_pad(
@@ -159,7 +155,7 @@ def preprocess_images(image, ground_truth, height, width, is_training,
     combined = tf.image.random_flip_left_right(combined)
 
     image = combined[:, :, :depth_i]
-    ground_truth = combined[:, :, depth_i:]  # + ignore_label
+    ground_truth = combined[:, :, depth_i:]
 
   else:
     image = tf.image.resize_image_with_crop_or_pad(image, height, width)
@@ -198,27 +194,28 @@ def map_ground_truth(ground_truth, palette):
 
 def get_pascal_palette():
   return tf.constant([
-    [0, 0, 0],  # 0=background
-    [128, 0, 0],  # 1=aeroplane
-    [0, 128, 0],  # 2=bicycle
-    [128, 128, 0],  # 3=bird
-    [0, 0, 128],  # 4=boat
-    [128, 0, 128],  # 5=bottle
-    [0, 128, 128],  # 6=bus
-    [128, 128, 128],  # 7=car
-    [64, 0, 0],  # 8=cat
-    [192, 0, 0],  # 9=chair#
-    [64, 128, 0],  # 10=cow
-    [192, 128, 0],  # 11=diningtable
-    [64, 0, 128],  # 12=dog
-    [192, 0, 128],  # 13=horse
-    [64, 128, 128],  # 14=motorbike
-    [192, 128, 128],  # 15=person
-    [0, 64, 0],  # 16=potted plant
-    [128, 64, 0],  # 17=sheep
-    [0, 192, 0],  # 18=sofa
-    [128, 192, 0],  # 19=train
-    [0, 64, 128]])  # 20=tv/monitor
+    [0, 0, 0],         # 0=background
+    [128, 0, 0],       # 1=aeroplane
+    [0, 128, 0],       # 2=bicycle
+    [128, 128, 0],     # 3=bird
+    [0, 0, 128],       # 4=boat
+    [128, 0, 128],     # 5=bottle
+    [0, 128, 128],     # 6=bus
+    [128, 128, 128],   # 7=car
+    [64, 0, 0],        # 8=cat
+    [192, 0, 0],       # 9=chair#
+    [64, 128, 0],      # 10=cow
+    [192, 128, 0],     # 11=diningtable
+    [64, 0, 128],      # 12=dog
+    [192, 0, 128],     # 13=horse
+    [64, 128, 128],    # 14=motorbike
+    [192, 128, 128],   # 15=person
+    [0, 64, 0],        # 16=potted plant
+    [128, 64, 0],      # 17=sheep
+    [0, 192, 0],       # 18=sofa
+    [128, 192, 0],     # 19=train
+    [0, 64, 128],      # 20=tv/monitor
+    [224, 224, 192]])  # 21=Ignorelabel
 
 
 def get_gt_img(logits_argmax, palette, num_images=1):
@@ -240,10 +237,10 @@ def get_gt_img(logits_argmax, palette, num_images=1):
 def pascal_voc_input_fn(is_training,
                         num_epochs=1,
                         batch_size=1,
-                        num_classes=21,
                         record_dir=DEFAULT_RECORD_DIR,
                         data_dir=DEFAULT_DATA_DIR):
   prepare_pascal_voc(data_dir, record_dir)
+  num_classes=21
 
   def get_filenames():
     if is_training:
@@ -293,15 +290,13 @@ def pascal_voc_input_fn(is_training,
   iterator = data_set.batch(batch_size).make_one_shot_iterator()
   images, labels, gt = iterator.get_next()
   images = tf.reshape(images, [batch_size, height, width, channels])
-  labels = tf.reshape(labels, [batch_size, height, width, num_classes])
+  
+  # reshape labels with one extra class for the ignore label (white boundaries)
+  labels = tf.reshape(labels, [batch_size, height, width, num_classes + 1])
   gt = tf.reshape(gt, [batch_size, height, width, channels])
 
-  tf.summary.image('ground_truth/reconstructed',
-                   get_gt_img(tf.argmax(labels, axis=3), get_pascal_palette()),
-                   max_outputs=6)
-
-  tf.summary.image('image/original', images, max_outputs=6)
-  tf.summary.image('ground_truth/original', gt, max_outputs=6)
+  tf.summary.image('img/original', images, max_outputs=6)
+  tf.summary.image('img/ground_truth', gt, max_outputs=6)
 
   return images, labels
 
