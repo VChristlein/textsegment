@@ -237,10 +237,11 @@ def get_gt_img(logits_argmax, palette, num_images=1):
 def pascal_voc_input_fn(is_training,
                         num_epochs=1,
                         batch_size=1,
+                        label_size=None,
                         record_dir=DEFAULT_RECORD_DIR,
                         data_dir=DEFAULT_DATA_DIR):
   prepare_pascal_voc(data_dir, record_dir)
-  num_classes=21
+  num_classes = 21
 
   def get_filenames():
     if is_training:
@@ -249,7 +250,8 @@ def pascal_voc_input_fn(is_training,
       return os.path.join(record_dir, 'val.record')
 
   height, width, channels = (500, 500, 3)
-  out_shape = [height, width, channels]
+  if label_size == None:
+    label_size = (height, width)
 
   file_names = get_filenames()
   data_set = tf.contrib.data.TFRecordDataset(file_names)
@@ -284,15 +286,17 @@ def pascal_voc_input_fn(is_training,
     return preprocess_images(image, gt, height, width, is_training, num_classes)
 
   data_set = data_set.map(lambda value: dataset_parser(value))
-  data_set = data_set.shuffle(buffer_size=200)
+  data_set = data_set.shuffle(buffer_size=5)
   data_set = data_set.repeat(num_epochs)
 
   iterator = data_set.batch(batch_size).make_one_shot_iterator()
   images, labels, gt = iterator.get_next()
+  labels = tf.image.resize_nearest_neighbor(labels, label_size)
   images = tf.reshape(images, [batch_size, height, width, channels])
-  
+
   # reshape labels with one extra class for the ignore label (white boundaries)
-  labels = tf.reshape(labels, [batch_size, height, width, num_classes + 1])
+  labels = tf.reshape(labels, [batch_size, label_size[0], label_size[1],
+                               num_classes + 1])
   gt = tf.reshape(gt, [batch_size, height, width, channels])
 
   tf.summary.image('img/original', images, max_outputs=6)
