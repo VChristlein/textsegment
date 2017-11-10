@@ -7,7 +7,7 @@ import os
 
 import tensorflow as tf
 
-from models.testing import testing_model_fn_gen as model_fn_generator
+from models.testing import get_testing_model_fn as model_fn_generator
 from dataset.pascal_voc import pascal_voc_input_fn as input_fn
 
 parser = argparse.ArgumentParser()
