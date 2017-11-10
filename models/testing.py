@@ -12,28 +12,29 @@ from dataset.pascal_voc import get_pascal_palette
 def block(inputs, filters, keep_prob, process_fn, is_training,
           data_format):
   # print('In', inputs)
-  shortcut = batch_norm_relu(
+  inputs = batch_norm_relu(
     inputs=inputs, is_training=is_training, data_format=data_format)
-  # print('relu', shortcut)
+  # print('relu', inputs)
 
-  shortcut = conv2d_fixed_padding(
-    inputs=shortcut, filters=filters, kernel_size=3, strides=1,
+  inputs = conv2d_fixed_padding(
+    inputs=inputs, filters=filters, kernel_size=3, strides=1,
     use_bias=False, data_format=data_format)
-  shortcut = dropout(
-    inputs=shortcut, keep_prob=keep_prob, is_training=is_training)
-  shortcut = batch_norm_relu(
-    inputs=shortcut, is_training=is_training, data_format=data_format)
-  # print('Conv1', shortcut)
+  inputs = dropout(
+    inputs=inputs, keep_prob=keep_prob, is_training=is_training)
+  inputs = batch_norm_relu(
+    inputs=inputs, is_training=is_training, data_format=data_format)
+  # print('Conv1', inputs)
 
-  shortcut = conv2d_fixed_padding(
-    inputs=shortcut, filters=filters, kernel_size=3, strides=1,
+  inputs = conv2d_fixed_padding(
+    inputs=inputs, filters=filters, kernel_size=3, strides=1,
     use_bias=False, data_format=data_format)
-  shortcut = dropout(
-    inputs=shortcut, keep_prob=keep_prob, is_training=is_training)
-  shortcut = batch_norm_relu(
-    inputs=shortcut, is_training=is_training, data_format=data_format)
-  # print('Conv2', shortcut)
+  inputs = dropout(
+    inputs=inputs, keep_prob=keep_prob, is_training=is_training)
+  inputs = batch_norm_relu(
+    inputs=inputs, is_training=is_training, data_format=data_format)
+  # print('Conv2', inputs)
 
+  shortcut = inputs
   output = process_fn(inputs)
   return shortcut, output
 
@@ -105,14 +106,14 @@ def net(inputs, blocks, num_classes, is_training, data_format=None):
   return net
 
 
-def test_model_fn_gen(depth,
-                      num_classes,
-                      input_shape,
-                      initial_learning_rate=0.1,
-                      momentum=0.9,
-                      learning_rate_decay_every_n_steps=None,
-                      weight_decay=2e-4,
-                      data_format=None):
+def get_testing_model_fn(depth,
+                         num_classes,
+                         input_shape,
+                         initial_learning_rate=0.1,
+                         momentum=0.9,
+                         learning_rate_decay_every_n_steps=None,
+                         weight_decay=2e-4,
+                         data_format=None):
   """Generate model function"""
   model_params = {
     2: {"size": 2, "filters": [64, 128], "keep_prob": 0.75},
@@ -230,5 +231,5 @@ def test_model_fn_gen(depth,
 if __name__ == '__main__':
   inputs = tf.placeholder(tf.float32, [1, 500, 500, 3])
   labels = tf.placeholder(tf.float32, [1, 63, 63, 21 + 1])
-  model_fn = test_model_fn_gen(3, 21, [500, 500, 3])
+  model_fn = get_testing_model_fn(3, 21, [500, 500, 3])
   model_fn(inputs, labels, tf.estimator.ModeKeys.TRAIN)
