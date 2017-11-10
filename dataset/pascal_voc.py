@@ -4,7 +4,6 @@ from __future__ import print_function
 
 import sys
 import os
-import tarfile
 import io
 import PIL.Image
 
@@ -14,15 +13,18 @@ import tensorflow as tf
 
 DATA_URL = \
   'http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar'
+DATA_URL_AUG = \
+  'https://www.dropbox.com/s/oeu149j8qtbs1x0/SegmentationClassAug.zip?dl=1'
 DEFAULT_DATA_DIR = '/tmp/pascal_voc'
 DEFAULT_RECORD_DIR = '/tmp/pascal_voc'
+IMG_MEAN = tf.constant([104.00698793, 116.66876762, 122.67891434])
 
 
-def maybe_download_pascal_voc(data_dir, force=False):
+def maybe_download_pascal_voc(url, data_dir, force=False):
   if not os.path.exists(data_dir):
     os.makedev(data_dir)
 
-  filename = DATA_URL.split('/')[-1]
+  filename = url.split('/')[-1]
   filepath = os.path.join(data_dir, filename)
 
   if not os.path.exists(filepath) or force:
@@ -31,12 +33,16 @@ def maybe_download_pascal_voc(data_dir, force=False):
         filename, 100.0 * count * block_size / total_size))
       sys.stdout.flush()
 
-    filepath, _ = urllib.request.urlretrieve(DATA_URL, filepath, _progress)
+    filepath, _ = urllib.request.urlretrieve(url, filepath, _progress)
     print()
     statinfo = os.stat(filepath)
     print('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
 
-  tarfile.open(filepath).extractall(data_dir)
+  if filename.endswith('.tar'):
+    import tarfile as compressed_file
+  elif filename.endswith('.zip'):
+    import zipfile as compressed_file
+  compressed_file.open(filepath).extractall(data_dir)
 
 
 def _int64_feature(value):
@@ -52,8 +58,8 @@ def _bytes_feature(value):
 
 
 def dict_to_example(data):
-  img_path = os.path.join(data['img_dir'], data['image'] + '.jpg')
-  gt_path = os.path.join(data['gt_dir'], data['image'] + '.png')
+  img_path = data['data_dir'] + data['img_path']
+  gt_path = data['data_dir'] + data['gt_path']
   with tf.gfile.GFile(img_path, 'rb') as fid:
     encoded_img = fid.read()
   with tf.gfile.GFile(gt_path, 'rb') as fid:
@@ -71,41 +77,25 @@ def dict_to_example(data):
       'Train image and ground truth image should be of the same size',
       image.size, ground_truth.size)
 
-  height, width = image.size
-  channels = len(image.mode)
-
   example = tf.train.Example(features=tf.train.Features(feature={
-    'image/height': _int64_feature(height),
-    'image/width': _int64_feature(width),
-    'image/channels': _int64_feature(channels),
     'image/encoded': _bytes_feature(encoded_img),
-    'image/format': _bytes_feature(image.format.encode('utf8')),
-    'ground_truth/encoded': _bytes_feature(encoded_gt),
-    'ground_truth/format': _bytes_feature(ground_truth.format.encode('utf8'))}))
+    'ground_truth/encoded': _bytes_feature(encoded_gt)}))
   return example
 
 
-def label_map_dict_gen(data_dir, data_set='train'):
-  if data_set not in ['train', 'trainval', 'val']:
-    raise ValueError(
-      'data_set must be one of \'train\', \'trainval\' or \'val\'', data_set)
+def get_label_map_dict(data_dir, data_set):
   data_dir = os.path.join(data_dir, 'VOCdevkit', 'VOC2012')
-  label_map_path = os.path.join(data_dir, 'ImageSets', 'Segmentation')
-  list_path = os.path.join(label_map_path, data_set + '.txt')
-
-  img_dir = os.path.join(data_dir, 'JPEGImages')
-  gt_dir = os.path.join(data_dir, 'SegmentationClass')
-
   dict = {}
-  dict['img_dir'] = img_dir
-  dict['gt_dir'] = gt_dir
+  dict['data_dir'] = data_dir
 
-  with tf.gfile.GFile(list_path, 'r') as fid:
+  with tf.gfile.GFile(data_set, 'r') as fid:
     while True:
       line = fid.readline()
       if not line:
         break
-      dict['image'] = line.rstrip()
+      img, gt = line.rstrip().split(' ')
+      dict['img_path'] = os.path.join(data_dir, img)
+      dict['gt_path'] = os.path.join(data_dir, gt)
       yield dict
 
 
@@ -121,26 +111,27 @@ def prepare_pascal_voc(data_dir, out_dir, force=False):
   if not (os.path.exists(os.path.join(data_dir, train_record)) and
             os.path.exists(os.path.join(data_dir, val_record))) \
       or force:
-
-    maybe_download_pascal_voc(data_dir, force=force)
+    maybe_download_pascal_voc(DATA_URL, data_dir, force=force)
+    maybe_download_pascal_voc(DATA_URL_AUG, data_dir, force=force)
 
     train_writer = tf.python_io.TFRecordWriter(
       os.path.join(out_dir, train_record))
-    for data in label_map_dict_gen(data_dir, 'train'):
+    for data in get_label_map_dict(
+        data_dir, os.path.join('dataset', 'voc_lists', 'train.txt')):
       example = dict_to_example(data)
       train_writer.write(example.SerializeToString())
     train_writer.close()
 
     val_writer = tf.python_io.TFRecordWriter(
       os.path.join(out_dir, val_record))
-    for data in label_map_dict_gen(data_dir, 'val'):
+    for data in get_label_map_dict(
+        data_dir, os.path.join('dataset', 'voc_lists', 'val.txt')):
       example = dict_to_example(data)
       val_writer.write(example.SerializeToString())
       val_writer.close()
 
 
-def preprocess_images(image, ground_truth, height, width, is_training,
-                      ignore_label=255):
+def preprocess_images(image, ground_truth, height, width, is_training):
   depth_i = image.shape.as_list()[2]
   depth_gt = ground_truth.shape.as_list()[2]
 
@@ -163,14 +154,28 @@ def preprocess_images(image, ground_truth, height, width, is_training,
       ground_truth, height, width)
 
   image = tf.image.convert_image_dtype(image, dtype=tf.float32)
-  label = map_ground_truth(ground_truth, get_pascal_palette())
-  return image, label, ground_truth
+  image -= IMG_MEAN
+  r, g, b = tf.split(image, axis=2, num_or_size_splits=3)
+  image = tf.concat(axis=2, values=[b, g, r])
+  return image, ground_truth
+
+
+def inv_preprocess_images(images):
+  # TODO: Check dtype checking
+  if images.dtype != tf.uint8:
+    images = tf.image.convert_image_dtype(images, dtype=tf.float32)
+  b, g, r = tf.split(images, axis=3, num_or_size_splits=3)
+  images = tf.concat(axis=3, values=[r, g, b])
+  images += IMG_MEAN
+  images = tf.image.convert_image_dtype(images, dtype=tf.uint8)
+  return images
+
 
 
 def map_ground_truth(ground_truth, palette):
   """
   :param ground_truth: Rank 3 or 4 tensor: [(batch_size,) height, width, depth]
-  :param num_classes: Number of classes for one_hot
+  :param palette: Color palette with rank [num_
   :return: one hot label
   """
   has_batch_size = True
@@ -238,10 +243,10 @@ def pascal_voc_input_fn(is_training,
                         num_epochs=1,
                         batch_size=1,
                         label_size=None,
+                        buffer_size=500,
                         record_dir=DEFAULT_RECORD_DIR,
                         data_dir=DEFAULT_DATA_DIR):
   prepare_pascal_voc(data_dir, record_dir)
-  num_classes = 21
 
   def get_filenames():
     if is_training:
@@ -249,7 +254,7 @@ def pascal_voc_input_fn(is_training,
     else:
       return os.path.join(record_dir, 'val.record')
 
-  height, width, channels = (500, 500, 3)
+  height, width, channels_img, channels_gt = (500, 500, 3, 1)
   if label_size == None:
     label_size = (height, width)
 
@@ -258,49 +263,34 @@ def pascal_voc_input_fn(is_training,
 
   def dataset_parser(record):
     keys_to_features = {
-      # 'image/width': tf.FixedLenFeature((), tf.int64, default_value=0),
-      # 'image/height': tf.FixedLenFeature((), tf.int64, default_value=0),
-      # 'image/channels': tf.FixedLenFeature((), tf.int64, default_value=0),
       'image/encoded': tf.FixedLenFeature((), tf.string, default_value=''),
-      'image/format': tf.FixedLenFeature((), tf.string, default_value=''),
       'ground_truth/encoded': tf.FixedLenFeature((), tf.string,
-                                                 default_value=''),
-      'ground_truth/format': tf.FixedLenFeature((), tf.string,
-                                                default_value='')}
+                                                 default_value='')}
     parsed = tf.parse_single_example(record, keys_to_features)
 
-    def decode_image(bytes, channels=3, format=tf.constant('JPEG')):
-      decoded = tf.cond(tf.equal(format, tf.constant('JPEG')),
-                        lambda: tf.image.decode_jpeg(bytes, channels=channels),
-                        lambda: tf.image.decode_png(bytes, channels=channels))
-      return decoded
+    image = tf.image.decode_jpeg(parsed['image/encoded'],
+                                 channels=channels_img)
 
-    image = decode_image(bytes=parsed['image/encoded'],
-                         channels=channels,
-                         format=parsed['image/format'])
+    gt = tf.image.decode_png(parsed['ground_truth/encoded'],
+                             channels=channels_gt)
 
-    gt = decode_image(bytes=parsed['ground_truth/encoded'],
-                      channels=channels,
-                      format=parsed['ground_truth/format'])
-
-    return preprocess_images(image, gt, height, width, is_training, num_classes)
+    return preprocess_images(image, gt, height, width, is_training)
 
   data_set = data_set.map(lambda value: dataset_parser(value))
-  data_set = data_set.shuffle(buffer_size=5)
+  data_set = data_set.shuffle(buffer_size=buffer_size)
   data_set = data_set.repeat(num_epochs)
 
   iterator = data_set.batch(batch_size).make_one_shot_iterator()
-  images, labels, gt = iterator.get_next()
+  images, labels = iterator.get_next()
   labels = tf.image.resize_nearest_neighbor(labels, label_size)
-  images = tf.reshape(images, [batch_size, height, width, channels])
+  images = tf.reshape(images, [batch_size, height, width, channels_img])
 
   # reshape labels with one extra class for the ignore label (white boundaries)
   labels = tf.reshape(labels, [batch_size, label_size[0], label_size[1],
-                               num_classes + 1])
-  gt = tf.reshape(gt, [batch_size, height, width, channels])
+                               channels_gt])
 
   tf.summary.image('img/original', images, max_outputs=6)
-  tf.summary.image('img/ground_truth', gt, max_outputs=6)
+  tf.summary.image('img/ground_truth', labels, max_outputs=6)
 
   return images, labels
 

@@ -11,10 +11,10 @@ from dataset.pascal_voc import get_pascal_palette
 
 def block(inputs, filters, keep_prob, process_fn, is_training,
           data_format):
-  print('In', inputs)
+  # print('In', inputs)
   shortcut = batch_norm_relu(
     inputs=inputs, is_training=is_training, data_format=data_format)
-  print('relu', shortcut)
+  # print('relu', shortcut)
 
   shortcut = conv2d_fixed_padding(
     inputs=shortcut, filters=filters, kernel_size=3, strides=1,
@@ -23,7 +23,7 @@ def block(inputs, filters, keep_prob, process_fn, is_training,
     inputs=shortcut, keep_prob=keep_prob, is_training=is_training)
   shortcut = batch_norm_relu(
     inputs=shortcut, is_training=is_training, data_format=data_format)
-  print('Conv1', shortcut)
+  # print('Conv1', shortcut)
 
   shortcut = conv2d_fixed_padding(
     inputs=shortcut, filters=filters, kernel_size=3, strides=1,
@@ -32,7 +32,7 @@ def block(inputs, filters, keep_prob, process_fn, is_training,
     inputs=shortcut, keep_prob=keep_prob, is_training=is_training)
   shortcut = batch_norm_relu(
     inputs=shortcut, is_training=is_training, data_format=data_format)
-  print('Conv2', shortcut)
+  # print('Conv2', shortcut)
 
   output = process_fn(inputs)
   return shortcut, output
@@ -142,23 +142,16 @@ def test_model_fn_gen(depth,
     if data_format == 'channels_first':
       logits = tf.transpose(logits, [0, 2, 3, 1])
 
+    flat_labels = tf.reshape(labels, [-1])
     flat_logits = tf.reshape(logits, [-1, num_classes])
-    flat_labels = tf.reshape(labels, [-1, num_classes + 1])
-    print(flat_logits, flat_labels, sep='\n')
-    print(logits, labels, sep='\n')
 
-    # Ignore the last class (the ignore label)
+    # Ignore the last class (the ignore label = 255)
     indices = tf.squeeze(tf.where(tf.less_equal(
-      tf.argmax(flat_labels, axis=1), num_classes - 1)), 1)
+      flat_labels, num_classes - 1)), 1)
     flat_labels = tf.cast(tf.gather(flat_labels, indices), tf.int32)
-    flat_labels = tf.slice(flat_labels, [0, 0], [-1, num_classes])
     flat_logits = tf.gather(flat_logits, indices)
 
     logits_argmax = tf.argmax(logits, axis=3)
-    mean_logits = tf.reduce_mean(logits_argmax)
-    var_logits = tf.image.total_variation(logits_argmax)
-    tf.summary.scalar('var_mean/logits_mean', mean_logits)
-    tf.summary.scalar('var_mean/logits_var', var_logits)
     tf.summary.histogram('logits', logits_argmax)
 
     predictions = {
@@ -166,25 +159,16 @@ def test_model_fn_gen(depth,
       'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
     }
 
-    labels_argmax = tf.argmax(labels, axis=3)
-    mean_labels = tf.reduce_mean(labels_argmax)
-    var_labels = tf.image.total_variation(labels_argmax)
-    tf.summary.scalar('var_mean/labels_mean', mean_labels)
-    tf.summary.scalar('var_mean/labels_var', var_labels)
-    tf.summary.histogram('labels', labels_argmax)
+    tf.summary.histogram('labels', flat_labels)
 
     if mode == tf.estimator.ModeKeys.PREDICT:
       return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
     # Calculate loss, which includes softmax cross entropy and L2 regularization.
-    cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
-      logits=flat_logits,
-      labels=flat_labels)
+    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
+      labels=flat_labels,
+      logits=flat_logits)
     cross_entropy = tf.reduce_mean(cross_entropy)
-
-    # cross_entropy = tf.losses.sparse_softmax_cross_entropy(
-    #   logits=tf.reshape(logits, [-1, num_classes]), 
-    #   labels=tf.reshape(labels_argmax, [-1]))
 
     # Create a tensor named cross_entropy for logging purposes.
     tf.identity(cross_entropy, name='cross_entropy')
@@ -223,7 +207,7 @@ def test_model_fn_gen(depth,
     else:
       train_op = None
 
-    accuracy = tf.metrics.accuracy(labels_argmax, predictions['classes'])
+    accuracy = tf.metrics.accuracy(labels, predictions['classes'])
     metrics = {'accuracy': accuracy}
 
     result = get_gt_img(predictions['classes'], get_pascal_palette())

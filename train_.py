@@ -40,7 +40,7 @@ _HEIGHT = 500
 _WIDTH = 500
 _DEPTH = 3
 _NUM_IMAGES = {
-  'train': 1464,
+  'train': 10582,
   'validation': 1449,
 }
 
@@ -78,11 +78,16 @@ def main(unused_argv):
     tensors_to_log = {
       'learning_rate': 'learning_rate',
       'cross_entropy': 'cross_entropy',
-      'train_accuracy': 'train_accuracy'
-    }
+      'train_accuracy': 'train_accuracy'}
 
     logging_hook = tf.train.LoggingTensorHook(
       tensors=tensors_to_log, every_n_iter=1000)
+    summary_writer = tf.summary.FileWriter(
+      FLAGS.model_dir, tf.get_default_graph())
+    summary_hook = tf.train.SummarySaverHook(
+      save_steps=1000,
+      summary_writer=summary_writer,
+      scaffold=tf.train.Scaffold())
 
     classifier.train(
       input_fn=lambda: input_fn(
@@ -90,9 +95,10 @@ def main(unused_argv):
         num_epochs=FLAGS.epochs_per_eval,
         label_size=(63, 63),
         batch_size=FLAGS.batch_size,
+        buffer_size=5,
         record_dir=FLAGS.data_dir, 
         data_dir=FLAGS.data_dir),
-      hooks=[logging_hook])
+      hooks=[logging_hook, summary_hook])
 
     # Evaluate the model and print results
     print('Evaluating model ...')
