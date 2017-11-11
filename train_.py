@@ -95,7 +95,7 @@ def main(unused_argv):
         num_epochs=FLAGS.epochs_per_eval,
         label_size=(63, 63),
         batch_size=FLAGS.batch_size,
-        buffer_size=5,
+        buffer_size=200,
         record_dir=FLAGS.data_dir, 
         data_dir=FLAGS.data_dir),
       hooks=[logging_hook, summary_hook])

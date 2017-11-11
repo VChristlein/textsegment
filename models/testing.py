@@ -147,8 +147,10 @@ def get_testing_model_fn(depth,
     flat_logits = tf.reshape(logits, [-1, num_classes])
 
     # Ignore the last class (the ignore label = 255)
+    u, y = tf.unique(flat_labels)
     indices = tf.squeeze(tf.where(tf.less_equal(
       flat_labels, num_classes - 1)), 1)
+    indices = tf.Print(indices, [u, y, tf.shape(indices)])
     flat_labels = tf.cast(tf.gather(flat_labels, indices), tf.int32)
     flat_logits = tf.gather(flat_logits, indices)
 

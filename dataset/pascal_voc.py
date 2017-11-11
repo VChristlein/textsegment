@@ -13,8 +13,10 @@ import tensorflow as tf
 
 DATA_URL = \
   'http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar'
+DATA_EXTRACTED_DIR = os.path.join('VOCdevkit', 'VOC2012')
 DATA_URL_AUG = \
   'https://www.dropbox.com/s/oeu149j8qtbs1x0/SegmentationClassAug.zip?dl=1'
+DATA_AUG_EXTRACTED_DIR = 'SegmentationClassAug'
 DEFAULT_DATA_DIR = '/tmp/pascal_voc'
 DEFAULT_RECORD_DIR = '/tmp/pascal_voc'
 IMG_MEAN = tf.constant([104.00698793, 116.66876762, 122.67891434])
@@ -25,6 +27,9 @@ def maybe_download_pascal_voc(url, data_dir, force=False):
     os.makedev(data_dir)
 
   filename = url.split('/')[-1]
+  # For Dropbox download
+  if filename.endswith('?dl=1'):
+    filename = filename[:-5]
   filepath = os.path.join(data_dir, filename)
 
   if not os.path.exists(filepath) or force:
@@ -38,11 +43,13 @@ def maybe_download_pascal_voc(url, data_dir, force=False):
     statinfo = os.stat(filepath)
     print('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
 
+  path = ''
   if filename.endswith('.tar'):
-    import tarfile as compressed_file
+    import tarfile
+    tarfile.open(filepath).extractall(data_dir)
   elif filename.endswith('.zip'):
-    import zipfile as compressed_file
-  compressed_file.open(filepath).extractall(data_dir)
+    from zipfile import ZipFile
+    ZipFile(filepath, 'r').extractall(data_dir)
 
 
 def _int64_feature(value):
@@ -84,7 +91,7 @@ def dict_to_example(data):
 
 
 def get_label_map_dict(data_dir, data_set):
-  data_dir = os.path.join(data_dir, 'VOCdevkit', 'VOC2012')
+  data_dir = os.path.join(data_dir, DATA_EXTRACTED_DIR)
   dict = {}
   dict['data_dir'] = data_dir
 
@@ -113,6 +120,10 @@ def prepare_pascal_voc(data_dir, out_dir, force=False):
       or force:
     maybe_download_pascal_voc(DATA_URL, data_dir, force=force)
     maybe_download_pascal_voc(DATA_URL_AUG, data_dir, force=force)
+    aug_target_dir = os.path.join(
+      data_dir, DATA_EXTRACTED_DIR, DATA_AUG_EXTRACTED_DIR)
+    if not os.path.exists(aug_target_dir):
+      os.rename(os.path.join(data_dir, DATA_AUG_EXTRACTED_DIR), aug_target_dir)
 
     train_writer = tf.python_io.TFRecordWriter(
       os.path.join(out_dir, train_record))
@@ -153,23 +164,12 @@ def preprocess_images(image, ground_truth, height, width, is_training):
     ground_truth = tf.image.resize_image_with_crop_or_pad(
       ground_truth, height, width)
 
-  image = tf.image.convert_image_dtype(image, dtype=tf.float32)
-  image -= IMG_MEAN
-  r, g, b = tf.split(image, axis=2, num_or_size_splits=3)
-  image = tf.concat(axis=2, values=[b, g, r])
-  return image, ground_truth
-
-
-def inv_preprocess_images(images):
-  # TODO: Check dtype checking
-  if images.dtype != tf.uint8:
-    images = tf.image.convert_image_dtype(images, dtype=tf.float32)
-  b, g, r = tf.split(images, axis=3, num_or_size_splits=3)
-  images = tf.concat(axis=3, values=[r, g, b])
-  images += IMG_MEAN
-  images = tf.image.convert_image_dtype(images, dtype=tf.uint8)
-  return images
-
+  image = tf.cast(image, dtype=tf.float32)
+  image_mean_free = image - IMG_MEAN
+  r, g, b = tf.split(image_mean_free, axis=2, num_or_size_splits=3)
+  image_mean_free = tf.concat(axis=2, values=[b, g, r])
+  ground_truth = tf.cast(ground_truth, dtype=tf.int32)
+  return image_mean_free, ground_truth, image
 
 
 def map_ground_truth(ground_truth, palette):
@@ -234,7 +234,7 @@ def get_gt_img(logits_argmax, palette, num_images=1):
       % (n, num_images))
   outputs = tf.gather_nd(
     params=tf.reshape(palette, [-1, 3]),
-    indices=tf.reshape(logits_argmax, [n, -1, 1]))
+    indices=tf.reshape(tf.cast(logits_argmax, tf.int64), [n, -1, 1]))
   outputs = tf.cast(tf.reshape(outputs, [n, h, w, 3]), tf.uint8)
   return outputs
 
@@ -281,17 +281,17 @@ def pascal_voc_input_fn(is_training,
   data_set = data_set.repeat(num_epochs)
 
   iterator = data_set.batch(batch_size).make_one_shot_iterator()
-  images, labels = iterator.get_next()
+  images, labels, orig_images = iterator.get_next()
   labels = tf.image.resize_nearest_neighbor(labels, label_size)
   images = tf.reshape(images, [batch_size, height, width, channels_img])
 
-  # reshape labels with one extra class for the ignore label (white boundaries)
   labels = tf.reshape(labels, [batch_size, label_size[0], label_size[1],
-                               channels_gt])
+                      channels_gt])
 
-  tf.summary.image('img/original', images, max_outputs=6)
-  tf.summary.image('img/ground_truth', labels, max_outputs=6)
-
+  tf.summary.image('img/original',  orig_images, max_outputs=6)
+  tf.summary.image('img/ground_truth', get_gt_img(
+    tf.squeeze(labels, axis=3), get_pascal_palette()), max_outputs=6)
+  print(labels)
   return images, labels
 
 
