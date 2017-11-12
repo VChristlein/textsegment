@@ -198,7 +198,8 @@ def map_ground_truth(ground_truth, palette):
 
 
 def get_pascal_palette():
-  return tf.constant([
+  import numpy as np
+  pallette = np.array([
     [0, 0, 0],         # 0=background
     [128, 0, 0],       # 1=aeroplane
     [0, 128, 0],       # 2=bicycle
@@ -220,7 +221,12 @@ def get_pascal_palette():
     [0, 192, 0],       # 18=sofa
     [128, 192, 0],     # 19=train
     [0, 64, 128],      # 20=tv/monitor
-    [224, 224, 192]])  # 21=Ignorelabel
+    [224, 224, 192]],  # 21=Ignorelabel
+    dtype=np.int32)
+  pallette = np.pad(pallette, ((0, 256 - pallette.shape[0]), (0, 0)),
+                    mode='constant', constant_values=0)
+  pallette[255] = [224, 224, 192]
+  return tf.constant(pallette)
 
 
 def get_gt_img(logits_argmax, palette, num_images=1):
@@ -232,9 +238,12 @@ def get_gt_img(logits_argmax, palette, num_images=1):
     raise ValueError(
       'Batch size %d should be greater or equal than number of images to save %d.' \
       % (n, num_images))
+
+    # logits_argmax[logits_argmax==255] = 21
+
   outputs = tf.gather_nd(
     params=tf.reshape(palette, [-1, 3]),
-    indices=tf.reshape(tf.cast(logits_argmax, tf.int64), [n, -1, 1]))
+    indices=tf.reshape(logits_argmax, [n, -1, 1]))
   outputs = tf.cast(tf.reshape(outputs, [n, h, w, 3]), tf.uint8)
   return outputs
 
@@ -291,7 +300,6 @@ def pascal_voc_input_fn(is_training,
   tf.summary.image('img/original',  orig_images, max_outputs=6)
   tf.summary.image('img/ground_truth', get_gt_img(
     tf.squeeze(labels, axis=3), get_pascal_palette()), max_outputs=6)
-  print(labels)
   return images, labels
 
 
@@ -304,7 +312,7 @@ def test_get_gt_img_map_ground_truth(sess):
 
   # We build a random logits tensor of the requested size
   n = 2  # batch size
-  h = w = 3  # image height, width
+  h = w = 50  # image height, width
   num_classes = 21
   np.random.seed(1234)
   logits = np.random.random_sample(
@@ -314,6 +322,8 @@ def test_get_gt_img_map_ground_truth(sess):
 
   palette = get_pascal_palette()  # [num_classes, c], c = 3
 
+  print(logits_argmax)
+  print(palette)
   reconstructed_gt = get_gt_img(logits_argmax, palette)  # [n, h, w, c]
   labels = map_ground_truth(reconstructed_gt, palette)  # [n, h, w, num_classes]
   labels_argmax = tf.argmax(labels, axis=3)  # [n, h, w]
