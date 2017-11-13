@@ -147,10 +147,8 @@ def get_testing_model_fn(depth,
     flat_logits = tf.reshape(logits, [-1, num_classes])
 
     # Ignore the last class (the ignore label = 255)
-    u, y = tf.unique(flat_labels)
     indices = tf.squeeze(tf.where(tf.less_equal(
       flat_labels, num_classes - 1)), 1)
-    indices = tf.Print(indices, [u, y, tf.shape(indices)])
     flat_labels = tf.cast(tf.gather(flat_labels, indices), tf.int32)
     flat_logits = tf.gather(flat_logits, indices)
 
@@ -186,12 +184,12 @@ def get_testing_model_fn(depth,
 
       # Multiply the learning rate by 0.1 at 100, 150, and 200 epochs.
       if learning_rate_decay_every_n_steps is not None:
-        boundaries = [int(learning_rate_decay_every_n_steps) for epoch in
-                      [100, 150, 200]]
-        values = [initial_learning_rate * decay for decay in
-                  [1, 0.1, 0.01, 0.001]]
-        learning_rate = tf.train.piecewise_constant(
-          tf.cast(global_step, tf.int32), boundaries, values)
+        learning_rate = tf.train.exponential_decay(
+          initial_learning_rate,
+          global_step,
+          learning_rate_decay_every_n_steps,
+          0.1,
+          staircase=True)
       else:
         learning_rate = tf.constant(initial_learning_rate)
 

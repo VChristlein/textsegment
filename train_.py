@@ -47,9 +47,10 @@ _NUM_IMAGES = {
 # Scale the learning rate linearly with the batch size. When the batch size is
 # 128, the learning rate should be 0.1.
 _INITIAL_LEARNING_RATE = 0.1 * FLAGS.batch_size / 64
+_NUM_EPOCHS_PER_DECAY = 350.0
 _MOMENTUM = 0.9
 
-_WEIGHT_DECAY = 2e-5 / (2 * _NUM_IMAGES['train'])
+_WEIGHT_DECAY = 2e-6 / (2 * _NUM_IMAGES['train'])
 
 _BATCHES_PER_EPOCH = _NUM_IMAGES['train'] // FLAGS.batch_size
 
@@ -61,12 +62,13 @@ def main(unused_argv):
   # Set up a RunConfig to only save checkpoints once per training cycle.
   run_config = tf.estimator.RunConfig().replace(save_checkpoints_secs=1000)
 
+  decay_steps = int(_BATCHES_PER_EPOCH * _NUM_EPOCHS_PER_DECAY)
   model_fn = model_fn_generator(
     depth=FLAGS.unet_depth,
     num_classes=_NUM_CLASSES,
     input_shape=[_HEIGHT, _WIDTH, _DEPTH],
     initial_learning_rate=_INITIAL_LEARNING_RATE,
-    learning_rate_decay_every_n_steps=1e3,
+    learning_rate_decay_every_n_steps=decay_steps ,
     momentum=_MOMENTUM,
     weight_decay=_WEIGHT_DECAY)
 
