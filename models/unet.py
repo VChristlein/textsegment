@@ -5,31 +5,30 @@ from __future__ import print_function
 from collections import OrderedDict
 
 from utils.layers import *
-from dataset.pascal_voc import get_gt_img
-from dataset.pascal_voc import get_pascal_palette
 
 
 def unet_block(inputs, filters, keep_prob, process_fn, is_training,
                data_format):
-  shortcut = batch_norm_relu(
+  inputs = batch_norm_relu(
     inputs=inputs, is_training=is_training, data_format=data_format)
 
-  shortcut = conv2d_fixed_padding(
-    inputs=shortcut, filters=filters, kernel_size=3, strides=1,
+  inputs = conv2d_fixed_padding(
+    inputs=inputs, filters=filters, kernel_size=3, strides=1,
     use_bias=False, data_format=data_format)
-  shortcut = dropout(
-    inputs=shortcut, keep_prob=keep_prob, is_training=is_training)
-  shortcut = batch_norm_relu(
-    inputs=shortcut, is_training=is_training, data_format=data_format)
+  inputs = dropout(
+    inputs=inputs, keep_prob=keep_prob, is_training=is_training)
+  inputs = batch_norm_relu(
+    inputs=inputs, is_training=is_training, data_format=data_format)
 
-  shortcut = conv2d_fixed_padding(
-    inputs=shortcut, filters=filters, kernel_size=3, strides=1,
+  inputs = conv2d_fixed_padding(
+    inputs=inputs, filters=filters, kernel_size=3, strides=1,
     use_bias=False, data_format=data_format)
-  shortcut = dropout(
-    inputs=shortcut, keep_prob=keep_prob, is_training=is_training)
-  shortcut = batch_norm_relu(
-    inputs=shortcut, is_training=is_training, data_format=data_format)
+  inputs = dropout(
+    inputs=inputs, keep_prob=keep_prob, is_training=is_training)
+  inputs = batch_norm_relu(
+    inputs=inputs, is_training=is_training, data_format=data_format)
 
+  shortcut = inputs
   output = process_fn(inputs)
   return shortcut, output
 
@@ -68,7 +67,7 @@ def unet(inputs, blocks, num_classes, is_training, data_format=None):
     shortcuts[i], net = unet_block(
       inputs=net,
       filters=blocks["filters"][i],
-      keep_prob=blocks["keep_prob"][i],
+      keep_prob=blocks["keep_prob"],
       process_fn=pool,
       is_training=is_training,
       data_format=data_format)
@@ -78,7 +77,7 @@ def unet(inputs, blocks, num_classes, is_training, data_format=None):
     _, net = unet_block(
       inputs=net,
       filters=blocks["filters"][i] * 2,
-      keep_prob=blocks["keep_prob"][i],
+      keep_prob=blocks["keep_prob"],
       process_fn=lambda inputs: conv_t(inputs, blocks["filters"][i],
                                        shortcuts[i].shape[2]),
       is_training=is_training,
@@ -93,7 +92,7 @@ def unet(inputs, blocks, num_classes, is_training, data_format=None):
   _, net = unet_block(
     inputs=net,
     filters=blocks["filters"][i],
-    keep_prob=blocks["keep_prob"][i],
+    keep_prob=blocks["keep_prob"],
     process_fn=lambda inputs: conv_relu_out(inputs, num_classes),
     is_training=is_training,
     data_format=data_format)
@@ -104,6 +103,8 @@ def unet(inputs, blocks, num_classes, is_training, data_format=None):
 def unet_model_fn_gen(unet_depth,
                       num_classes,
                       input_shape,
+                      ignore_last_class=False,
+                      get_gt_fn=None,
                       initial_learning_rate=0.1,
                       momentum=0.9,
                       learning_rate_decay_every_n_steps=None,
@@ -111,10 +112,9 @@ def unet_model_fn_gen(unet_depth,
                       data_format=None):
   """Generate model function"""
   model_params = {
-    2: {"size": 2, "filters": [64, 128], "keep_prob": [0.75, 0.75]},
-    3: {"size": 3, "filters": [64, 128, 256], "keep_prob": [0.75, 0.75, 0.75]},
-    4: {"size": 4, "filters": [64, 128, 256, 512],
-        "keep_prob": [0.75, 0.75, 0.75, 0.75]}
+    2: {"size": 2, "filters": [64, 128], "keep_prob": 0.75},
+    3: {"size": 3, "filters": [64, 128, 256], "keep_prob": 0.75},
+    4: {"size": 4, "filters": [64, 128, 256, 512], "keep_prob": 0.75}
   }
 
   if unet_depth not in model_params:
@@ -136,26 +136,21 @@ def unet_model_fn_gen(unet_depth,
                   is_training=mode == tf.estimator.ModeKeys.TRAIN,
                   data_format=data_format)
 
-    print(logits)
     if data_format == 'channels_first':
+      # TODO: Is there a better way?
       logits = tf.transpose(logits, [0, 2, 3, 1])
-    
-    print(logits)
 
+    flat_labels = tf.reshape(labels, [-1])
     flat_logits = tf.reshape(logits, [-1, num_classes])
-    flat_labels = tf.reshape(labels, [-1, num_classes + 1])
 
-    # Ignore the last class (the ignore label)
-    indices = tf.squeeze(tf.where(tf.less_equal(tf.argmax(flat_labels, axis=1), num_classes - 1)), 1)
-    flat_labels = tf.cast(tf.gather(flat_labels, indices), tf.int32)
-    flat_labels = tf.slice(flat_labels, [0, 0], [-1, num_classes])
-    flat_logits = tf.gather(flat_logits, indices)
- 
+    # Ignore the last class (the ignore/void label)
+    if ignore_last_class:
+      indices = tf.squeeze(tf.where(tf.less_equal(
+        flat_labels, num_classes - 1)), 1)
+      flat_labels = tf.cast(tf.gather(flat_labels, indices), tf.int32)
+      flat_logits = tf.gather(flat_logits, indices)
+
     logits_argmax = tf.argmax(logits, axis=3)
-    mean_logits = tf.reduce_mean(logits_argmax)
-    var_logits = tf.image.total_variation(logits_argmax)
-    tf.summary.scalar('var_mean/logits_mean', mean_logits)
-    tf.summary.scalar('var_mean/logits_var', var_logits)
     tf.summary.histogram('logits', logits_argmax)
 
     predictions = {
@@ -163,20 +158,15 @@ def unet_model_fn_gen(unet_depth,
       'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
     }
 
-    labels_argmax = tf.argmax(labels, axis=3)
-    mean_labels = tf.reduce_mean(labels_argmax)
-    var_labels = tf.image.total_variation(labels_argmax)
-    tf.summary.scalar('var_mean/labels_mean', mean_labels)
-    tf.summary.scalar('var_mean/labels_var', var_labels)
-    tf.summary.histogram('labels', labels_argmax)
+    tf.summary.histogram('labels', flat_labels)
 
     if mode == tf.estimator.ModeKeys.PREDICT:
       return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
     # Calculate loss, which includes softmax cross entropy and L2 regularization.
-    cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
-      logits=flat_logits,
-      labels=flat_labels)
+    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
+      labels=flat_labels,
+      logits=flat_logits)
     cross_entropy = tf.reduce_mean(cross_entropy)
 
     # cross_entropy = tf.losses.sparse_softmax_cross_entropy(
@@ -202,7 +192,6 @@ def unet_model_fn_gen(unet_depth,
                   [1, 0.1, 0.01, 0.001]]
         learning_rate = tf.train.piecewise_constant(
           tf.cast(global_step, tf.int32), boundaries, values)
-        print('leraning_rate', learning_rate)
       else:
         learning_rate = tf.constant(initial_learning_rate)
 
@@ -221,10 +210,10 @@ def unet_model_fn_gen(unet_depth,
     else:
       train_op = None
 
-    accuracy = tf.metrics.accuracy(labels_argmax, predictions['classes'])
+    accuracy = tf.metrics.accuracy(labels, predictions['classes'])
     metrics = {'accuracy': accuracy}
 
-    result = get_gt_img(predictions['classes'], get_pascal_palette())
+    result = get_gt_fn(predictions['classes'])
     tf.summary.image('img/predicted_gt', result, max_outputs=6)
 
     # Create a tensor named train_accuracy for logging purposes

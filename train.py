@@ -9,6 +9,8 @@ import tensorflow as tf
 
 from models.unet import unet_model_fn_gen as model_fn_generator
 from dataset.pascal_voc import pascal_voc_input_fn as input_fn
+from dataset.pascal_voc import get_gt_img as gt_fn
+from dataset.pascal_voc import get_pascal_palette as get_palette
 
 parser = argparse.ArgumentParser()
 
@@ -31,8 +33,13 @@ parser.add_argument('--epochs_per_eval', type=int, default=10,
 parser.add_argument('--batch_size', type=int, default=1,
                     help='The number of images per batch.')
 
+parser.add_argument('--buffer_size', type=int, default=0,
+                    help='The number of images to buffer for training.')
+
 FLAGS = parser.parse_args()
 
+if FLAGS.buffer_size == 0:
+  FLAGS.buffer_size = FLAGS.batch_size * 100
 
 _NUM_CLASSES = 21
 
@@ -45,8 +52,8 @@ _NUM_IMAGES = {
 }
 
 # Scale the learning rate linearly with the batch size. When the batch size is
-# 128, the learning rate should be 0.1.
 _INITIAL_LEARNING_RATE = 0.1 * FLAGS.batch_size / 64
+_NUM_EPOCHS_PER_DECAY = 100.0
 _MOMENTUM = 0.9
 
 _WEIGHT_DECAY = 2e-5 / (2 * _NUM_IMAGES['train'])
@@ -61,12 +68,15 @@ def main(unused_argv):
   # Set up a RunConfig to only save checkpoints once per training cycle.
   run_config = tf.estimator.RunConfig().replace(save_checkpoints_secs=1000)
 
+  decay_steps = int(_BATCHES_PER_EPOCH * _NUM_EPOCHS_PER_DECAY)
   model_fn = model_fn_generator(
     unet_depth=FLAGS.unet_depth,
     num_classes=_NUM_CLASSES,
+    ignore_last_class=True,
+    get_gt_fn=lambda predictions: gt_fn(predictions, get_palette()),
     input_shape=[_HEIGHT, _WIDTH, _DEPTH],
     initial_learning_rate=_INITIAL_LEARNING_RATE,
-    learning_rate_decay_every_n_steps=1e3,
+    learning_rate_decay_every_n_steps=decay_steps,
     momentum=_MOMENTUM,
     weight_decay=_WEIGHT_DECAY)
 
@@ -83,15 +93,22 @@ def main(unused_argv):
 
     logging_hook = tf.train.LoggingTensorHook(
       tensors=tensors_to_log, every_n_iter=1000)
+    summary_writer = tf.summary.FileWriter(
+      FLAGS.model_dir, tf.get_default_graph())
+    summary_hook = tf.train.SummarySaverHook(
+      save_steps=1000,
+      summary_writer=summary_writer,
+      scaffold=tf.train.Scaffold())
 
     classifier.train(
       input_fn=lambda: input_fn(
         is_training=True, 
         num_epochs=FLAGS.epochs_per_eval,
         batch_size=FLAGS.batch_size,
+        buffer_size=FLAGS.buffer_size,
         record_dir=FLAGS.data_dir, 
         data_dir=FLAGS.data_dir),
-      hooks=[logging_hook])
+      hooks=[logging_hook, summary_hook])
 
     # Evaluate the model and print results
     print('Evaluating model ...')
