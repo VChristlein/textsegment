@@ -142,15 +142,19 @@ def prepare_pascal_voc(data_dir, out_dir, force=False):
       val_writer.close()
 
 
-def preprocess_images(image, ground_truth, height, width, is_training):
+def preprocess_images(image, ground_truth, height, width, scale_factor,
+                      is_training):
   depth_i = image.shape.as_list()[2]
   depth_gt = ground_truth.shape.as_list()[2]
+
+  out_height = int(scale_factor * height)
+  out_width = int(scale_factor * width)
 
   if is_training:
     combined = tf.concat([image, ground_truth], axis=2)
 
     combined = tf.image.resize_image_with_crop_or_pad(
-      combined, height + 72, width + 72)
+      combined, int(height * 1.2), int(width * 1.2))
 
     combined = tf.random_crop(combined, [height, width, depth_i + depth_gt])
 
@@ -163,6 +167,10 @@ def preprocess_images(image, ground_truth, height, width, is_training):
     image = tf.image.resize_image_with_crop_or_pad(image, height, width)
     ground_truth = tf.image.resize_image_with_crop_or_pad(
       ground_truth, height, width)
+
+  image = tf.image.resize_images(image, (out_height, out_width))
+  ground_truth = tf.image.resize_images(ground_truth, (out_height, out_width),
+                                        tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
   image = tf.cast(image, dtype=tf.float32)
   image_mean_free = image - IMG_MEAN
@@ -200,32 +208,32 @@ def map_ground_truth(ground_truth, palette):
 def get_pascal_palette():
   import numpy as np
   pallette = np.array([
-    [0, 0, 0],         # 0=background
-    [128, 0, 0],       # 1=aeroplane
-    [0, 128, 0],       # 2=bicycle
-    [128, 128, 0],     # 3=bird
-    [0, 0, 128],       # 4=boat
-    [128, 0, 128],     # 5=bottle
-    [0, 128, 128],     # 6=bus
-    [128, 128, 128],   # 7=car
-    [64, 0, 0],        # 8=cat
-    [192, 0, 0],       # 9=chair#
-    [64, 128, 0],      # 10=cow
-    [192, 128, 0],     # 11=diningtable
-    [64, 0, 128],      # 12=dog
-    [192, 0, 128],     # 13=horse
-    [64, 128, 128],    # 14=motorbike
-    [192, 128, 128],   # 15=person
-    [0, 64, 0],        # 16=potted plant
-    [128, 64, 0],      # 17=sheep
-    [0, 192, 0],       # 18=sofa
-    [128, 192, 0],     # 19=train
-    [0, 64, 128]],     # 20=tv/monitor
+    [0, 0, 0],  # 0=background
+    [128, 0, 0],  # 1=aeroplane
+    [0, 128, 0],  # 2=bicycle
+    [128, 128, 0],  # 3=bird
+    [0, 0, 128],  # 4=boat
+    [128, 0, 128],  # 5=bottle
+    [0, 128, 128],  # 6=bus
+    [128, 128, 128],  # 7=car
+    [64, 0, 0],  # 8=cat
+    [192, 0, 0],  # 9=chair#
+    [64, 128, 0],  # 10=cow
+    [192, 128, 0],  # 11=diningtable
+    [64, 0, 128],  # 12=dog
+    [192, 0, 128],  # 13=horse
+    [64, 128, 128],  # 14=motorbike
+    [192, 128, 128],  # 15=person
+    [0, 64, 0],  # 16=potted plant
+    [128, 64, 0],  # 17=sheep
+    [0, 192, 0],  # 18=sofa
+    [128, 192, 0],  # 19=train
+    [0, 64, 128]],  # 20=tv/monitor
     dtype=np.int32)
   # TODO: Make this better (maybe in get_gt_img()):
   pallette = np.pad(pallette, ((0, 256 - pallette.shape[0]), (0, 0)),
                     mode='constant', constant_values=0)
-  pallette[255] = [224, 224, 192] # 255=Ignorelabel
+  pallette[255] = [224, 224, 192]  # 255=Ignorelabel
   return tf.constant(pallette)
 
 
@@ -251,6 +259,7 @@ def get_gt_img(logits_argmax, palette, num_images=1):
 def pascal_voc_input_fn(is_training,
                         num_epochs=1,
                         batch_size=1,
+                        img_scale_factor=1,
                         label_size=None,
                         buffer_size=500,
                         record_dir=DEFAULT_RECORD_DIR,
@@ -264,8 +273,10 @@ def pascal_voc_input_fn(is_training,
       return os.path.join(record_dir, 'val.record')
 
   height, width, channels_img, channels_gt = (500, 500, 3, 1)
+  out_height = int(img_scale_factor * height)
+  out_width = int(img_scale_factor * width)
   if label_size == None:
-    label_size = (height, width)
+    label_size = (out_height, out_width)
 
   file_names = get_filenames()
   data_set = tf.contrib.data.TFRecordDataset(file_names)
@@ -283,7 +294,8 @@ def pascal_voc_input_fn(is_training,
     gt = tf.image.decode_png(parsed['ground_truth/encoded'],
                              channels=channels_gt)
 
-    return preprocess_images(image, gt, height, width, is_training)
+    return preprocess_images(image, gt, height, width, img_scale_factor,
+                             is_training)
 
   data_set = data_set.map(lambda value: dataset_parser(value))
   data_set = data_set.shuffle(buffer_size=buffer_size)
@@ -292,12 +304,12 @@ def pascal_voc_input_fn(is_training,
   iterator = data_set.batch(batch_size).make_one_shot_iterator()
   images, labels, orig_images = iterator.get_next()
   labels = tf.image.resize_nearest_neighbor(labels, label_size)
-  images = tf.reshape(images, [batch_size, height, width, channels_img])
+  images = tf.reshape(images, [batch_size, out_width, out_height, channels_img])
 
   labels = tf.reshape(labels, [batch_size, label_size[0], label_size[1],
-                      channels_gt])
+                               channels_gt])
 
-  tf.summary.image('img/original',  orig_images, max_outputs=6)
+  tf.summary.image('img/original', orig_images, max_outputs=6)
   tf.summary.image('img/ground_truth', get_gt_img(
     tf.squeeze(labels, axis=3), get_pascal_palette()), max_outputs=6)
   return images, labels

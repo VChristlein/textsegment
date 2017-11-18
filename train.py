@@ -36,6 +36,9 @@ parser.add_argument('--batch_size', type=int, default=1,
 parser.add_argument('--buffer_size', type=int, default=0,
                     help='The number of images to buffer for training.')
 
+parser.add_argument('--scale_factor', type=float, default=1,
+                    help='Input image scale factor between (0, 1].')
+
 FLAGS = parser.parse_args()
 
 if FLAGS.buffer_size == 0:
@@ -43,8 +46,8 @@ if FLAGS.buffer_size == 0:
 
 _NUM_CLASSES = 21
 
-_HEIGHT = 500
-_WIDTH = 500
+_HEIGHT = int(500 * FLAGS.scale_factor)
+_WIDTH = int(500 * FLAGS.scale_factor)
 _DEPTH = 3
 _NUM_IMAGES = {
   'train': 1464,
@@ -67,6 +70,21 @@ def main(unused_argv):
 
   # Set up a RunConfig to only save checkpoints once per training cycle.
   run_config = tf.estimator.RunConfig().replace(save_checkpoints_secs=1000)
+
+  input_train = lambda: input_fn(
+    is_training=True,
+    img_scale_factor=FLAGS.scale_factor,
+    num_epochs=FLAGS.epochs_per_eval,
+    batch_size=FLAGS.batch_size,
+    buffer_size=FLAGS.buffer_size,
+    record_dir=FLAGS.data_dir,
+    data_dir=FLAGS.data_dir)
+
+  input_val = lambda: input_fn(
+    is_training=False,
+    img_scale_factor=FLAGS.scale_factor,
+    record_dir=FLAGS.data_dir,
+    data_dir=FLAGS.data_dir)
 
   decay_steps = int(_BATCHES_PER_EPOCH * _NUM_EPOCHS_PER_DECAY)
   model_fn = model_fn_generator(
@@ -101,22 +119,13 @@ def main(unused_argv):
       scaffold=tf.train.Scaffold())
 
     classifier.train(
-      input_fn=lambda: input_fn(
-        is_training=True, 
-        num_epochs=FLAGS.epochs_per_eval,
-        batch_size=FLAGS.batch_size,
-        buffer_size=FLAGS.buffer_size,
-        record_dir=FLAGS.data_dir, 
-        data_dir=FLAGS.data_dir),
+      input_fn=input_train,
       hooks=[logging_hook, summary_hook])
 
     # Evaluate the model and print results
     print('Evaluating model ...')
     eval_results = classifier.evaluate(
-      input_fn=lambda: input_fn(
-        is_training=False,
-        record_dir=FLAGS.data_dir, 
-        data_dir=FLAGS.data_dir))
+      input_fn=input_val)
     print(eval_results)
 
 
