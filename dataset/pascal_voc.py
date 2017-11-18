@@ -220,12 +220,12 @@ def get_pascal_palette():
     [128, 64, 0],      # 17=sheep
     [0, 192, 0],       # 18=sofa
     [128, 192, 0],     # 19=train
-    [0, 64, 128],      # 20=tv/monitor
-    [224, 224, 192]],  # 21=Ignorelabel
+    [0, 64, 128]],     # 20=tv/monitor
     dtype=np.int32)
+  # TODO: Make this better (maybe in get_gt_img()):
   pallette = np.pad(pallette, ((0, 256 - pallette.shape[0]), (0, 0)),
                     mode='constant', constant_values=0)
-  pallette[255] = [224, 224, 192]
+  pallette[255] = [224, 224, 192] # 255=Ignorelabel
   return tf.constant(pallette)
 
 
