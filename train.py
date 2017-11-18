@@ -50,7 +50,7 @@ _HEIGHT = int(500 * FLAGS.scale_factor)
 _WIDTH = int(500 * FLAGS.scale_factor)
 _DEPTH = 3
 _NUM_IMAGES = {
-  'train': 1464,
+  'train': 10581,
   'validation': 1449,
 }
 

@@ -138,6 +138,7 @@ def unet_model_fn_gen(unet_depth,
 
     if data_format == 'channels_first':
       # TODO: Is there a better way?
+      # Transform nchw back to nhwc for loss calculation
       logits = tf.transpose(logits, [0, 2, 3, 1])
 
     flat_labels = tf.reshape(labels, [-1])
@@ -168,10 +169,6 @@ def unet_model_fn_gen(unet_depth,
       labels=flat_labels,
       logits=flat_logits)
     cross_entropy = tf.reduce_mean(cross_entropy)
-
-    # cross_entropy = tf.losses.sparse_softmax_cross_entropy(
-    #   logits=tf.reshape(logits, [-1, num_classes]), 
-    #   labels=tf.reshape(labels_argmax, [-1]))
 
     # Create a tensor named cross_entropy for logging purposes.
     tf.identity(cross_entropy, name='cross_entropy')
