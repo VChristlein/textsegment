@@ -8,9 +8,9 @@ import os
 import tensorflow as tf
 
 from models.unet import unet_model_fn_gen as model_fn_generator
-from dataset.pascal_voc import pascal_voc_input_fn as input_fn
-from dataset.pascal_voc import get_gt_img as gt_fn
-from dataset.pascal_voc import get_pascal_palette as get_palette
+from dataset.pascal_voc import pascal_voc_input_fn as input_fn, \
+                               get_gt_img as gt_fn, \
+                               get_pascal_palette as get_palette
 
 parser = argparse.ArgumentParser()
 

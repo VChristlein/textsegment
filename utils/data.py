@@ -11,8 +11,10 @@ from six.moves import urllib
 
 import tensorflow as tf
 
+from utils.data import maybe_download
 
-def maybe_download_pascal_voc(url, data_dir, force=False):
+
+def maybe_download(url, data_dir, force=False):
   if not os.path.exists(data_dir):
     os.makedev(data_dir)
 
@@ -34,7 +36,6 @@ def maybe_download_pascal_voc(url, data_dir, force=False):
     statinfo = os.stat(filepath)
     print('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
 
-  path = ''
   if filename.endswith('.tar'):
     import tarfile
     tarfile.open(filepath).extractall(data_dir)
@@ -81,7 +82,6 @@ def dict_to_example(data):
 
 
 def get_label_map_dict(data_dir, data_set):
-  data_dir = os.path.join(data_dir, DATA_EXTRACTED_DIR)
   dict = {}
   dict['data_dir'] = data_dir
 
