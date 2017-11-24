@@ -8,9 +8,12 @@ import os
 import tensorflow as tf
 
 from models.unet import unet_model_fn_gen as model_fn_generator
-from dataset.pascal_voc import pascal_voc_input_fn as input_fn, \
-                               get_gt_img as gt_fn, \
-                               get_pascal_palette as get_palette
+# from dataset.pascal_voc import pascal_voc_input_fn as input_fn, \
+#                                get_gt_img as gt_fn, \
+#                                get_pascal_palette as get_palette
+from dataset.dibco import dibco_input_fn as input_fn, \
+                          get_gt_img as gt_fn, \
+                          get_dibco_palette as get_palette
 
 parser = argparse.ArgumentParser()
 
@@ -44,14 +47,14 @@ FLAGS = parser.parse_args()
 if FLAGS.buffer_size == 0:
   FLAGS.buffer_size = FLAGS.batch_size * 100
 
-_NUM_CLASSES = 21
+_NUM_CLASSES = 2
 
-_HEIGHT = int(500 * FLAGS.scale_factor)
-_WIDTH = int(500 * FLAGS.scale_factor)
+_HEIGHT = int(250 * FLAGS.scale_factor)
+_WIDTH = int(250 * FLAGS.scale_factor)
 _DEPTH = 3
 _NUM_IMAGES = {
-  'train': 10581,
-  'validation': 1449,
+  'train': 68,
+  'validation': 18,
 }
 
 # Scale the learning rate linearly with the batch size. When the batch size is
@@ -90,7 +93,7 @@ def main(unused_argv):
   model_fn = model_fn_generator(
     unet_depth=FLAGS.unet_depth,
     num_classes=_NUM_CLASSES,
-    ignore_last_class=True,
+    # ignore_last_class=True,
     get_gt_fn=lambda predictions: gt_fn(predictions, get_palette()),
     input_shape=[_HEIGHT, _WIDTH, _DEPTH],
     initial_learning_rate=_INITIAL_LEARNING_RATE,
