@@ -162,9 +162,6 @@ def inv_preprocess(images, mean, name=None):
     mean = tf.convert_to_tensor(mean, dtype=tf.float32)
     images = bgr_to_rgb(images)
     images = images + mean
-    images = tf.Print(images,
-                      [tf.reduce_mean(tf.reshape(images, [-1, 3]), axis=0)],
-                      "image mean")
     return images
 
 
@@ -209,15 +206,41 @@ def scale(images, out_size=None, scale_factor=1.0, method='NEAREST',
     return images
 
 
-def map_ground_truth(ground_truth, palette, name=None):
+def get_gt_img(logits_argmax, palette, num_images=1):
+  if len(logits_argmax.shape) != 3:
+    raise ValueError(
+      'logits argmax should be a tensor of rank 3 with the shape [batch_size, height, width].'
+    )
+  n, h, w = logits_argmax.shape.as_list()
+  if n < num_images:
+    raise ValueError(
+      'Batch size %d should be greater or equal than number of images to save %d.' \
+      % (n, num_images))
+
+  depth = palette.get_shape().as_list()[1]
+  outputs = tf.gather_nd(
+    params=palette,
+    indices=tf.reshape(logits_argmax, [n, -1, 1]),
+    name='GetGtImg')
+  outputs = tf.cast(tf.reshape(outputs, [n, h, w, depth]), tf.uint8)
+  return outputs
+
+
+def map_ground_truth(ground_truth, palette, one_hot=True, name=None):
   """ Maps a ground truth image tensor to a label tensor.
 
   Args:
-    ground_truth: Rank 3 or 4 tensor: [(batch_size,) height, width, depth]
-    palette: Color palette with rank [num_
+    ground_truth: Rank 3 or 4 tensor: [(batch_size,) height, width, depth].
+    palette: Color palette with rank [num_classes, palette_depth].
 
   Returns:
-    one hot label
+    If `one_hot` is `True`, it returns a one hot label of shape
+        [(batch_size,) height, width, 1], otherwise it will return a label of
+        shape [(batch_size,) height, width, num_clases].
+
+  Raises:
+    ValueError: If the channels of ground truth and palette or not the same.
+
   """
   palette = tf.convert_to_tensor(palette)
   with tf.name_scope(name, 'MapGroundTruth', [ground_truth, palette]):
@@ -236,6 +259,9 @@ def map_ground_truth(ground_truth, palette, name=None):
       tf.reshape(ground_truth, [n, h, w, 1, c]),
       tf.reshape(palette, [num_classes, c]))
     label = tf.cast(tf.reduce_all(equality, axis=-1), tf.int32)
+    if one_hot:
+      label = tf.argmax(label, axis=3)
+      label = tf.expand_dims(label, axis=-1)
     if not is_batch:
       label = tf.squeeze(label, axis=0)
     return label

@@ -8,7 +8,7 @@ import tensorflow as tf
 
 from utils.data import maybe_download, dict_to_example, get_label_map_dict
 from utils.image_processing import preprocess, scale, inv_preprocess, \
-  random_rotate
+  random_rotate, get_gt_img
 
 DATA_URL = 'http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar'
 DATA_EXTRACTED_DIR = os.path.join('VOCdevkit', 'VOC2012')
@@ -43,16 +43,17 @@ def prepare_pascal_voc(data_dir=DEFAULT_DATA_DIR,
 
     train_writer = tf.python_io.TFRecordWriter(
       os.path.join(out_dir, train_record))
-    for data in get_label_map_dict(os.path.join(data_dir, DATA_EXTRACTED_DIR),
-                                   os.path.join('dataset', 'voc_lists',
-                                                'train.txt')):
+    for data in get_label_map_dict(
+        os.path.join(data_dir, DATA_EXTRACTED_DIR),
+        os.path.join('dataset', 'voc_lists', 'train.txt')):
       example = dict_to_example(data)
       train_writer.write(example.SerializeToString())
     train_writer.close()
 
     val_writer = tf.python_io.TFRecordWriter(os.path.join(out_dir, val_record))
     for data in get_label_map_dict(
-        data_dir, os.path.join('dataset', 'voc_lists', 'val.txt')):
+        os.path.join(data_dir, DATA_EXTRACTED_DIR),
+        os.path.join('dataset', 'voc_lists', 'val.txt')):
       example = dict_to_example(data)
       val_writer.write(example.SerializeToString())
       val_writer.close()
@@ -85,30 +86,12 @@ def get_pascal_palette():
       [0, 64, 128]  # 20=tv/monitor
     ],
     dtype=np.int32)
-  pallette = np.pad(
-    pallette, ((0, 256 - pallette.shape[0]), (0, 0)),
-    mode='constant',
-    constant_values=0)
+  pallette = np.pad(pallette,
+                    pad_with=((0, 256 - pallette.shape[0]), (0, 0)),
+                    mode='constant',
+                    constant_values=0)
   pallette[255] = [224, 224, 192]  # 255=Ignorelabel
   return tf.constant(pallette)
-
-
-def get_gt_img(logits_argmax, palette, num_images=1):
-  if len(logits_argmax.shape) != 3:
-    raise ValueError(
-      'logits argmax should be a tensor of rank 3 with the shape [batch_size, height, width].'
-    )
-  n, h, w = logits_argmax.shape.as_list()
-  if n < num_images:
-    raise ValueError(
-      'Batch size %d should be greater or equal than number of images to save %d.' \
-      % (n, num_images))
-
-  outputs = tf.gather_nd(
-    params=tf.reshape(palette, [-1, 3]),
-    indices=tf.reshape(logits_argmax, [n, -1, 1]))
-  outputs = tf.cast(tf.reshape(outputs, [n, h, w, 3]), tf.uint8)
-  return outputs
 
 
 def pascal_voc_input_fn(is_training,
@@ -147,8 +130,6 @@ def pascal_voc_input_fn(is_training,
     image, gt = preprocess(image, gt, height, width, IMG_MEAN, is_training)
     image = scale(image, scale_factor=img_scale_factor)
     gt = scale(gt, out_size=label_size)
-    print(image)
-    print(gt)
     image, gt = random_rotate(image, gt)
     return image, gt
 
@@ -161,8 +142,8 @@ def pascal_voc_input_fn(is_training,
   labels = tf.image.resize_nearest_neighbor(labels, label_size)
   images = tf.reshape(images, [batch_size, out_width, out_height, channels_img])
 
-  labels = tf.reshape(labels,
-                      [batch_size, label_size[0], label_size[1], channels_gt])
+  labels = tf.reshape(
+    labels, [batch_size, label_size[0], label_size[1], channels_gt])
 
   tf.summary.image('img/original', inv_preprocess(images, IMG_MEAN),
                    max_outputs=6)
@@ -170,3 +151,7 @@ def pascal_voc_input_fn(is_training,
                    get_gt_img(tf.squeeze(labels, axis=3), get_pascal_palette()),
                    max_outputs=6)
   return images, labels
+
+
+if __name__ == '__main__':
+  prepare_pascal_voc()

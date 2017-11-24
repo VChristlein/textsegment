@@ -11,8 +11,6 @@ from six.moves import urllib
 
 import tensorflow as tf
 
-from utils.data import maybe_download
-
 
 def maybe_download(url, data_dir, force=False):
   if not os.path.exists(data_dir):
@@ -57,8 +55,8 @@ def _bytes_feature(value):
 
 
 def dict_to_example(data):
-  img_path = data['data_dir'] + data['img_path']
-  gt_path = data['data_dir'] + data['gt_path']
+  img_path = os.path.join(data['data_dir'], data['img_path'])
+  gt_path = os.path.join(data['data_dir'], data['gt_path'])
   with tf.gfile.GFile(img_path, 'rb') as fid:
     encoded_img = fid.read()
   with tf.gfile.GFile(gt_path, 'rb') as fid:
@@ -70,7 +68,7 @@ def dict_to_example(data):
   if image.size != ground_truth.size:
     raise ValueError(
         'Train image and ground truth image should be of the same size',
-        image.size, ground_truth.size)
+        image.size, ground_truth.size, img_path, gt_path)
 
   example = tf.train.Example(
       features=tf.train.Features(
@@ -81,15 +79,18 @@ def dict_to_example(data):
   return example
 
 
-def get_label_map_dict(data_dir, data_set):
+def get_label_map_dict(data_dir, file_list):
   dict = {}
   dict['data_dir'] = data_dir
 
-  with tf.gfile.GFile(data_set, 'r') as fid:
+  with tf.gfile.GFile(file_list, 'r') as fid:
     while True:
       line = fid.readline()
       if not line:
         break
       img, gt = line.rstrip().split(' ')
-      dict['img_path'] = os.path.join(data_dir, img)
-      dict['gt_path'] = os.path.join(data_dir, gt)
+      img = img.lstrip(r'\/')
+      gt = gt.lstrip(r'\/')
+      dict['img_path'] = img
+      dict['gt_path'] = gt
+      yield dict
