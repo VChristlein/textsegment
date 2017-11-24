@@ -183,8 +183,8 @@ def unet_model_fn_gen(unet_depth,
 
       # Multiply the learning rate by 0.1 at 100, 150, and 200 epochs.
       if learning_rate_decay_every_n_steps is not None:
-        boundaries = [int(learning_rate_decay_every_n_steps) for epoch in
-                      [100, 150, 200]]
+        # TODO: Make this configurable
+        boundaries = [200000, 250000, 300000]
         values = [initial_learning_rate * decay for decay in
                   [1, 0.1, 0.01, 0.001]]
         learning_rate = tf.train.piecewise_constant(
