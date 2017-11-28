@@ -113,9 +113,14 @@ def dibco_input_fn(is_training,
   labels = tf.reshape(
     labels, [batch_size, label_size[0], label_size[1], channels_gt])
 
-  tf.summary.image('img/original', inv_preprocess(images, IMG_MEAN),
+  if is_training:
+    mode_str = 'train'
+  else:
+    mode_str = 'eval'
+
+  tf.summary.image(mode_str + '/original', inv_preprocess(images, IMG_MEAN),
                    max_outputs=6)
-  tf.summary.image('img/ground_truth',
+  tf.summary.image(mode_str + '/ground_truth',
                    get_gt_img(tf.squeeze(labels, axis=3), get_dibco_palette()),
                    max_outputs=6)
   return images, labels

@@ -131,10 +131,10 @@ def unet_model_fn_gen(unet_depth,
   img_depth = input_shape[2]
 
   def unet_model_fn(features, labels, mode):
+    is_training = mode == tf.estimator.ModeKeys.TRAIN
     inputs = tf.reshape(features, [-1, img_height, img_width, img_depth])
     logits = unet(inputs=inputs, blocks=params, num_classes=num_classes,
-                  is_training=mode == tf.estimator.ModeKeys.TRAIN,
-                  data_format=data_format)
+                  is_training=is_training, data_format=data_format)
 
     if data_format == 'channels_first':
       # TODO: Is there a better way?
@@ -211,7 +211,12 @@ def unet_model_fn_gen(unet_depth,
     metrics = {'accuracy': accuracy}
 
     result = get_gt_fn(predictions['classes'])
-    tf.summary.image('img/predicted_gt', result, max_outputs=6)
+    if is_training:
+      mode_str = 'train'
+    else:
+      mode_str = 'eval'
+
+    tf.summary.image(mode_str + '/predicted_gt', result, max_outputs=6)
 
     # Create a tensor named train_accuracy for logging purposes
     tf.identity(accuracy[1], name='train_accuracy')
