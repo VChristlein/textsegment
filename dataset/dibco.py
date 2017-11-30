@@ -79,7 +79,7 @@ def dibco_input_fn(is_training,
 
   file_names = os.path.join(
     record_dir, 'train.record' if is_training else 'val.record')
-  data_set = tf.data.TFRecordDataset(file_names)
+  data_set = tf.contrib.data.TFRecordDataset(file_names)
 
   def dataset_parser(record):
     keys_to_features = {
