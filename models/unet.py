@@ -104,11 +104,12 @@ def unet_model_fn_gen(unet_depth,
                       num_classes,
                       input_shape,
                       ignore_last_class=False,
-                      get_gt_fn=None,
+                      get_gt_fn=lambda input: input,
                       initial_learning_rate=0.1,
                       momentum=0.9,
                       learning_rate_decay_every_n_steps=None,
                       weight_decay=2e-4,
+                      crf_post_processing=False,
                       data_format=None):
   """Generate model function"""
   model_params = {
@@ -135,6 +136,15 @@ def unet_model_fn_gen(unet_depth,
     inputs = tf.reshape(features, [-1, img_height, img_width, img_depth])
     logits = unet(inputs=inputs, blocks=params, num_classes=num_classes,
                   is_training=is_training, data_format=data_format)
+
+    if crf_post_processing:
+      if logits.get_shape().as_list()[0] != 1:
+        raise ValueError('Batch size must be one for crf training.')
+      logits = crf(
+        inputs=[logits, tf.transpose(inputs, [0, 3, 1, 2]) \
+                if data_format == 'channels_first' else inputs],
+        num_classes=num_classes,
+        data_format=data_format)
 
     if data_format == 'channels_first':
       # TODO: Is there a better way?

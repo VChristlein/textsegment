@@ -42,6 +42,9 @@ parser.add_argument('--buffer_size', type=int, default=0,
 parser.add_argument('--scale_factor', type=float, default=1,
                     help='Input image scale factor between (0, 1].')
 
+parser.add_argument('--crf_training', type=bool, default=False,
+                    help='After normal training train a downstream crf')
+
 FLAGS = parser.parse_args()
 
 if FLAGS.buffer_size == 0:
@@ -99,7 +102,8 @@ def main(unused_argv):
     initial_learning_rate=_INITIAL_LEARNING_RATE,
     learning_rate_decay_every_n_steps=decay_steps,
     momentum=_MOMENTUM,
-    weight_decay=_WEIGHT_DECAY)
+    weight_decay=_WEIGHT_DECAY,
+    crf_post_processing=FLAGS.crf_training)
 
   classifier = tf.estimator.Estimator(
     model_fn=model_fn, model_dir=FLAGS.model_dir,
