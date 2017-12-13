@@ -19,13 +19,13 @@ parser = argparse.ArgumentParser()
 
 # Basic model parameters.
 parser.add_argument('--data_dir', type=str, default='/tmp/unet_data',
-                    help='The path to the CIFAR-10 dataset directory.')
+                    help='The path to the dataset directory.')
 
 parser.add_argument('--model_dir', type=str, default='/tmp/unet_model',
                     help='The directory where the model will be stored.')
 
 parser.add_argument('--unet_depth', type=int, default=3,
-                    help='The size of the ResNet model to use.')
+                    help='The size of the Unet model to use.')
 
 parser.add_argument('--train_epochs', type=int, default=250,
                     help='The number of epochs to train.')
@@ -103,10 +103,12 @@ def main(unused_argv):
     learning_rate_decay_every_n_steps=decay_steps,
     momentum=_MOMENTUM,
     weight_decay=_WEIGHT_DECAY,
-    crf_post_processing=FLAGS.crf_training)
+    crf_post_processing=FLAGS.crf_training,
+    save_dir=FLAGS.model_dir)
 
   classifier = tf.estimator.Estimator(
-    model_fn=model_fn, model_dir=FLAGS.model_dir,
+    model_fn=model_fn,
+    model_dir=FLAGS.model_dir,
     config=run_config)
 
   for _ in range(FLAGS.train_epochs // FLAGS.epochs_per_eval):
@@ -118,16 +120,10 @@ def main(unused_argv):
 
     logging_hook = tf.train.LoggingTensorHook(
       tensors=tensors_to_log, every_n_iter=1000)
-    summary_writer = tf.summary.FileWriter(
-      FLAGS.model_dir, tf.get_default_graph())
-    summary_hook = tf.train.SummarySaverHook(
-      save_steps=1000,
-      summary_writer=summary_writer,
-      scaffold=tf.train.Scaffold())
 
     classifier.train(
       input_fn=input_train,
-      hooks=[logging_hook, summary_hook])
+      hooks=[logging_hook])
 
     # Evaluate the model and print results
     print('Evaluating model ...')

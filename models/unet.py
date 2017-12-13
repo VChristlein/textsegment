@@ -110,6 +110,7 @@ def unet_model_fn_gen(unet_depth,
                       learning_rate_decay_every_n_steps=None,
                       weight_decay=2e-4,
                       crf_post_processing=False,
+                      save_dir=None,
                       data_format=None):
   """Generate model function"""
   model_params = {
@@ -148,7 +149,7 @@ def unet_model_fn_gen(unet_depth,
         num_iterations=3)
 
     if data_format == 'channels_first':
-      # TODO: Is there a better way?
+      # TODO: Is there a better way to compute the loss without a transpose?
       # Transform nchw back to nhwc for loss calculation
       logits = tf.transpose(logits, [0, 2, 3, 1])
 
@@ -189,7 +190,7 @@ def unet_model_fn_gen(unet_depth,
     loss = cross_entropy + weight_decay * tf.add_n(
       [tf.nn.l2_loss(v) for v in tf.trainable_variables()])
 
-    if mode == tf.estimator.ModeKeys.TRAIN:
+    if is_training:
       global_step = tf.train.get_or_create_global_step()
 
       # Multiply the learning rate by 0.1 at 100, 150, and 200 epochs.
@@ -227,17 +228,31 @@ def unet_model_fn_gen(unet_depth,
     else:
       mode_str = 'eval'
 
-    tf.summary.image(mode_str + '/predicted_gt', result, max_outputs=6)
+    tf.summary.image(mode_str + '/prediction', result, max_outputs=6)
 
     # Create a tensor named train_accuracy for logging purposes
     tf.identity(accuracy[1], name='train_accuracy')
     tf.summary.scalar('train_accuracy', accuracy[1])
+
+    if is_training:
+      # tf.Estimator handles summaries during training
+      hooks = None
+    else:
+      # But not during evaluation :(
+      summary_hook = tf.train.SummarySaverHook(
+        save_steps=1,
+        output_dir=save_dir,
+        summary_op=tf.summary.merge_all()
+      )
+      hooks = [summary_hook]
 
     return tf.estimator.EstimatorSpec(
       mode=mode,
       predictions=predictions,
       loss=loss,
       train_op=train_op,
-      eval_metric_ops=metrics)
+      eval_metric_ops=metrics,
+      evaluation_hooks=hooks
+    )
 
   return unet_model_fn
