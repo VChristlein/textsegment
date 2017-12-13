@@ -144,7 +144,8 @@ def unet_model_fn_gen(unet_depth,
         inputs=[logits, tf.transpose(inputs, [0, 3, 1, 2]) \
                 if data_format == 'channels_first' else inputs],
         num_classes=num_classes,
-        data_format=data_format)
+        data_format=data_format,
+        num_iterations=3)
 
     if data_format == 'channels_first':
       # TODO: Is there a better way?
