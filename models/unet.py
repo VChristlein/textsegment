@@ -141,12 +141,14 @@ def unet_model_fn_gen(unet_depth,
     if crf_post_processing:
       if logits.get_shape().as_list()[0] != 1:
         raise ValueError('Batch size must be one for crf training.')
-      logits = crf(
-        inputs=[logits, tf.transpose(inputs, [0, 3, 1, 2]) \
-                if data_format == 'channels_first' else inputs],
-        num_classes=num_classes,
-        data_format=data_format,
-        num_iterations=3)
+      num_iterations = 3
+    else:
+      num_iterations = 0
+    logits = crf(
+      inputs=[logits, tf.transpose(inputs, [0, 3, 1, 2])],
+      num_classes=num_classes,
+      data_format=data_format,
+      num_iterations=num_iterations)
 
     if data_format == 'channels_first':
       # TODO: Is there a better way to compute the loss without a transpose?

@@ -1,12 +1,11 @@
 import tensorflow as tf
-from tensorflow.python.framework import tensor_shape
 from tensorflow.python.layers import base
 from tensorflow.python.ops import init_ops
 from tensorflow.python.ops import variable_scope as vs
 from tensorflow.python.ops import array_ops
 
-import utils.high_dim_filter_grad
-custom_module = tf.load_op_library('./utils/high_dim_filter.so')
+import utils.crfasrnn.high_dim_filter_grad
+custom_module = tf.load_op_library('./utils/crfasrnn/high_dim_filter.so')
 
 _BATCH_NORM_DECAY = 0.997
 _BATCH_NORM_EPSILON = 1e-5
@@ -174,6 +173,9 @@ class CRF(base.Layer):
        trainable=True)
 
     def crf_op(inputs):
+      if self.num_iterations == 0:
+        return inputs[0]
+
       # TODO: Implement batch version
       unaries = tf.squeeze(inputs[0], axis=0)
       if self.data_format != 'channels_first':

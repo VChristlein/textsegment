@@ -1,0 +1,3 @@
+[submodule "utils/crfasrnn/crfasrnn_keras"]
+	path = utils/crfasrnn/crfasrnn_keras
+	url = https://github.com/sadeepj/crfasrnn_keras
