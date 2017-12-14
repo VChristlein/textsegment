@@ -62,7 +62,7 @@ _NUM_IMAGES = {
 
 # Scale the learning rate linearly with the batch size. When the batch size is
 _INITIAL_LEARNING_RATE = 0.1 * FLAGS.batch_size / 64
-_NUM_EPOCHS_PER_DECAY = 250
+_NUM_EPOCHS_PER_DECAY = FLAGS.train_epochs / 4
 _MOMENTUM = 0.9
 
 _WEIGHT_DECAY = 2e-5 / (2 * _NUM_IMAGES['train'])
@@ -111,7 +111,7 @@ def main(unused_argv):
     model_dir=FLAGS.model_dir,
     config=run_config)
 
-  for _ in range(FLAGS.train_epochs // FLAGS.epochs_per_eval):
+  for i in range(FLAGS.train_epochs // FLAGS.epochs_per_eval):
     tensors_to_log = {
       'learning_rate': 'learning_rate',
       'cross_entropy': 'cross_entropy',
@@ -126,7 +126,7 @@ def main(unused_argv):
       hooks=[logging_hook])
 
     # Evaluate the model and print results
-    print('Evaluating model ...')
+    print('Evaluating model for epoch {} ...'.format(i * FLAGS.epochs_per_eval))
     eval_results = classifier.evaluate(
       input_fn=input_val)
     print(eval_results)
