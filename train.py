@@ -27,10 +27,10 @@ parser.add_argument('--model_dir', type=str, default='/tmp/unet_model',
 parser.add_argument('--unet_depth', type=int, default=3,
                     help='The size of the Unet model to use.')
 
-parser.add_argument('--train_epochs', type=int, default=250,
+parser.add_argument('--train_epochs', type=int, default=1000,
                     help='The number of epochs to train.')
 
-parser.add_argument('--epochs_per_eval', type=int, default=10,
+parser.add_argument('--epochs_per_eval', type=int, default=100,
                     help='The number of batches to run in between evaluations.')
 
 parser.add_argument('--batch_size', type=int, default=1,
@@ -62,7 +62,7 @@ _NUM_IMAGES = {
 
 # Scale the learning rate linearly with the batch size. When the batch size is
 _INITIAL_LEARNING_RATE = 0.1 * FLAGS.batch_size / 64
-_NUM_EPOCHS_PER_DECAY = 100.0
+_NUM_EPOCHS_PER_DECAY = 250
 _MOMENTUM = 0.9
 
 _WEIGHT_DECAY = 2e-5 / (2 * _NUM_IMAGES['train'])
