@@ -61,7 +61,7 @@ def prepare_dibco(data_dir=DEFAULT_DATA_DIR,
         data_dir, os.path.join(data_dir, 'test.txt')):
       example = dict_to_example(data)
       val_writer.write(example.SerializeToString())
-      val_writer.close()
+    val_writer.close()
 
   return get_dibco_meta_data()
 
