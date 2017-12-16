@@ -11,10 +11,9 @@ from models.unet import unet_model_fn_gen as model_fn_generator
 # from dataset.pascal_voc import pascal_voc_input_fn as input_fn, \
 #                                get_gt_img as gt_fn, \
 #                                get_pascal_palette as get_palette
-from dataset.dibco import prepare_dibco as prepare_dataset, \
-  dibco_input_fn as input_fn, \
-  get_gt_img as gt_fn, \
-  get_dibco_palette as get_palette
+from dataset.dibco import dibco_input_fn as input_fn, \
+                          get_gt_img as gt_fn, \
+                          get_dibco_palette as get_palette
 
 parser = argparse.ArgumentParser()
 
@@ -47,14 +46,27 @@ parser.add_argument('--img_patch_size', type=int, default=0,
 parser.add_argument('--scale_factor', type=float, default=1,
                     help='Input image scale factor between (0, 1].')
 
+parser.add_argument('--crf_training', type=bool, default=False,
+                    help='After normal training train a downstream crf')
+
 FLAGS = parser.parse_args()
 
 if FLAGS.buffer_size == 0:
   FLAGS.buffer_size = FLAGS.batch_size * 100
 
+_NUM_CLASSES = 2
+
+_HEIGHT = int(250 * FLAGS.scale_factor)
+_WIDTH = int(250 * FLAGS.scale_factor)
+_DEPTH = 3
+_NUM_IMAGES = {
+  'train': 68,
+  'validation': 18,
+}
+
 # Scale the learning rate linearly with the batch size. When the batch size is
 _INITIAL_LEARNING_RATE = 0.1 * FLAGS.batch_size / 64
-_NUM_EPOCHS_PER_DECAY = 250
+_NUM_EPOCHS_PER_DECAY = FLAGS.train_epochs / 4
 _MOMENTUM = 0.9
 
 
@@ -112,7 +124,7 @@ def main(unused_argv):
       model_dir=FLAGS.model_dir,
       config=run_config)
 
-    for _ in range(FLAGS.train_epochs // FLAGS.epochs_per_eval):
+    for i in range(FLAGS.train_epochs // FLAGS.epochs_per_eval):
       tensors_to_log = {
         'learning_rate': 'learning_rate',
         'cross_entropy': 'cross_entropy',
@@ -127,7 +139,7 @@ def main(unused_argv):
         hooks=[logging_hook])
 
       # Evaluate the model and print results
-      print('Evaluating model ...')
+      print('Evaluating model for epoch {} ...'.format(i * FLAGS.epochs_per_eval))
       eval_results = classifier.evaluate(
         input_fn=input_val)
       print(eval_results)

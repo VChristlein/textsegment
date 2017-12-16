@@ -8,16 +8,20 @@
 #SBATCH -o /cluster/%u/%j.out 
 #SBATCH -e /cluster/%u/%j.err 
 
-printf 'Using virtualenv:\n'
-mkdir /scratch/ko01jaxu/env/
-virtualenv --system-site-packages -p python3 /scratch/ko01jaxu/env/tf-1.2
-source /scratch/ko01jaxu/env/tf-1.2/bin/activate
+TF_VERSION=1.4.0
+
+export CUDA_HOME=/cluster/ko01jaxu/cuda-8.0
+export LD_LIBRARY_PATH=/cluster/ko01jaxu/cuda-8.0/lib64
+
+mkdir -p /scratch/ko01jaxu/env/
+virtualenv --system-site-packages -p python3 /scratch/ko01jaxu/env/tf-$TF_VERSION
+source /scratch/ko01jaxu/env/tf-$TF_VERSION/bin/activate
 easy_install -U pip
-pip3 install --upgrade 'tensorflow-gpu==1.2.0' Pillow
+pip3 install --upgrade tensorflow-gpu==$TF_VERSION Pillow
 
 python3 /cluster/ko01jaxu/ma-proj/train.py \
     --model_dir=/cluster/ko01jaxu/unet_model \
-#    --batch_size=8 \  # Slow on cudnn 5
+    --batch_size=8 \
     --epochs_per_eval=100 \
     --train_epochs=10000 \
     --buffer_size=1000 
