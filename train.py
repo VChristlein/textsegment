@@ -8,12 +8,13 @@ import os
 import tensorflow as tf
 
 from models.unet import unet_model_fn_gen as model_fn_generator
-# from dataset.pascal_voc import pascal_voc_input_fn as input_fn, \
-#                                get_gt_img as gt_fn, \
-#                                get_pascal_palette as get_palette
-from dataset.dibco import dibco_input_fn as input_fn, \
-                          get_gt_img as gt_fn, \
-                          get_dibco_palette as get_palette
+from utils.image_processing import get_gt_img
+from dataset.dibco import prepare_dibco, \
+                          dibco_input_fn, \
+                          get_dibco_palette
+from dataset.hisdb import prepare_hisdb, \
+                          hisdb_input_fn, \
+                          get_hisdb_palette
 
 parser = argparse.ArgumentParser()
 
@@ -46,25 +47,27 @@ parser.add_argument('--img_patch_size', type=int, default=0,
 parser.add_argument('--scale_factor', type=float, default=1,
                     help='Input image scale factor between (0, 1].')
 
-parser.add_argument('--crf_training', type=bool, default=False,
-                    help='After normal training train a downstream crf')
+parser.add_argument('--dataset', type=str, default='dibco',
+                    help='The dataset to train with. Possible datasets: ' + \
+                         '`dibco`, `hisdb`.')
 
 FLAGS = parser.parse_args()
+
+if FLAGS.dataset == 'dibco':
+  prepare_dataset = prepare_dibco
+  input_fn = dibco_input_fn
+  get_palette = get_dibco_palette
+elif FLAGS.dataset == 'hisdb':
+  prepare_dataset = prepare_hisdb
+  input_fn = hisdb_input_fn
+  get_palette = get_hisdb_palette
+else:
+  raise ValueError('Dataset not supported: %s.' % FLAGS.dataset)
 
 if FLAGS.buffer_size == 0:
   FLAGS.buffer_size = FLAGS.batch_size * 100
 
-_NUM_CLASSES = 2
-
-_HEIGHT = int(250 * FLAGS.scale_factor)
-_WIDTH = int(250 * FLAGS.scale_factor)
-_DEPTH = 3
-_NUM_IMAGES = {
-  'train': 68,
-  'validation': 18,
-}
-
-# Scale the learning rate linearly with the batch size. When the batch size is
+# Scale the learning rate linearly with the batch size.
 _INITIAL_LEARNING_RATE = 0.1 * FLAGS.batch_size / 64
 _NUM_EPOCHS_PER_DECAY = FLAGS.train_epochs / 4
 _MOMENTUM = 0.9
@@ -91,26 +94,31 @@ def main(unused_argv):
   # Set up a RunConfig to only save checkpoints once per training cycle.
   run_config = tf.estimator.RunConfig().replace(save_checkpoints_secs=1000)
 
-  input_train = lambda: input_fn(
-    is_training=True,
-    img_scale_factor=FLAGS.scale_factor,
-    num_epochs=FLAGS.epochs_per_eval,
-    batch_size=FLAGS.batch_size,
-    buffer_size=FLAGS.buffer_size,
-    data_dir=FLAGS.data_dir)
-
-  input_val = lambda: input_fn(
-    is_training=False,
-    img_scale_factor=FLAGS.scale_factor,
-    data_dir=FLAGS.data_dir)
-
   decay_steps = int(batches_per_epoch * _NUM_EPOCHS_PER_DECAY)
 
   for use_crf in range(2):
+    if use_crf:
+      print('Now training with a downstream CRF!')
+      # The implementation only supports a batch size of 1
+      FLAGS.batch_size = 1
+
+    input_train = lambda: input_fn(
+      is_training=True,
+      img_scale_factor=FLAGS.scale_factor,
+      num_epochs=FLAGS.epochs_per_eval,
+      batch_size=FLAGS.batch_size,
+      buffer_size=FLAGS.buffer_size,
+      data_dir=FLAGS.data_dir)
+
+    input_val = lambda: input_fn(
+      is_training=False,
+      img_scale_factor=FLAGS.scale_factor,
+    data_dir=FLAGS.data_dir)
+
     model_fn = model_fn_generator(
       unet_depth=FLAGS.unet_depth,
       num_classes=meta_data['num_classes'],
-      get_gt_fn=lambda predictions: gt_fn(predictions, get_palette()),
+      get_gt_fn=lambda predictions: get_gt_img(predictions, get_palette()),
       input_shape=[height, width, depth],
       initial_learning_rate=_INITIAL_LEARNING_RATE,
       learning_rate_decay_every_n_steps=decay_steps,

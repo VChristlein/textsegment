@@ -43,23 +43,22 @@ def prepare_dibco(data_dir=DEFAULT_DATA_DIR,
   val_record = 'val.record'
 
   if not (os.path.exists(os.path.join(data_dir, train_record)) and
-            os.path.exists(os.path.join(data_dir, val_record))) \
-      or force:
+            os.path.exists(os.path.join(data_dir, val_record))) or force:
     maybe_download(get_dibco_meta_data()['url'], data_dir, force=force)
 
     data_dir = os.path.join(data_dir, DATA_EXTRACTED_DIR)
 
     train_writer = tf.python_io.TFRecordWriter(
       os.path.join(out_dir, train_record))
-    for data in get_label_map_dict(data_dir,
-                                   os.path.join(data_dir, 'train.txt')):
+    for data in get_label_map_dict(
+        data_dir, os.path.join(data_dir, 'train.txt')):
       example = dict_to_example(data)
       train_writer.write(example.SerializeToString())
     train_writer.close()
 
     val_writer = tf.python_io.TFRecordWriter(os.path.join(out_dir, val_record))
-    for data in get_label_map_dict(data_dir,
-                                   os.path.join(data_dir, 'test.txt')):
+    for data in get_label_map_dict(
+        data_dir, os.path.join(data_dir, 'test.txt')):
       example = dict_to_example(data)
       val_writer.write(example.SerializeToString())
       val_writer.close()
@@ -71,7 +70,7 @@ def get_dibco_palette():
   return tf.constant(
     [
       [255],  # Background
-      [0],  # Writing
+      [0],    # Writing
     ],
     dtype=tf.int32)
 
@@ -94,12 +93,12 @@ def dibco_input_fn(is_training,
   if label_size is None:
     label_size = (out_height, out_width)
 
-  file_names = os.path.join(
+  record = os.path.join(
     data_dir, 'train.record' if is_training else 'val.record')
-  if not os.path.exists(file_names):
-    raise ValueError('TFRecord not found: {}.'.format(file_names) + \
+  if not os.path.exists(record):
+    raise ValueError('TFRecord not found: {}.'.format(record) + \
                      'Did you download it `using prepare_dibco()`?')
-  data_set = tf.data.TFRecordDataset(file_names)
+  data_set = tf.data.TFRecordDataset(record)
 
   mean = get_dibco_meta_data()['img_mean']
 
@@ -150,4 +149,4 @@ def dibco_input_fn(is_training,
 
 
 if __name__ == '__main__':
-  prepare_dibco(force=True)
+  prepare_dibco(force=False)

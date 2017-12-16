@@ -5,9 +5,9 @@ from __future__ import print_function
 import sys
 import os
 import io
-import PIL.Image
 
 from six.moves import urllib
+from PIL import Image
 
 import tensorflow as tf
 
@@ -54,27 +54,31 @@ def _bytes_feature(value):
   return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 
-def dict_to_example(data):
+def read_img(path):
+  with tf.gfile.GFile(path, 'rb') as fid:
+    encoded_img = fid.read()
+  return encoded_img
+
+def get_img_size(encoded_img):
+  encoded_img_io = io.BytesIO(encoded_img)
+  return list(Image.open(encoded_img_io).size)
+
+
+def dict_to_example(data, img_fn=read_img, gt_fn=read_img):
   img_path = os.path.join(data['data_dir'], data['img_path'])
   gt_path = os.path.join(data['data_dir'], data['gt_path'])
-  with tf.gfile.GFile(img_path, 'rb') as fid:
-    encoded_img = fid.read()
-  with tf.gfile.GFile(gt_path, 'rb') as fid:
-    encoded_gt = fid.read()
-  encoded_img_io = io.BytesIO(encoded_img)
-  encoded_gt_io = io.BytesIO(encoded_gt)
-  image = PIL.Image.open(encoded_img_io)
-  ground_truth = PIL.Image.open(encoded_gt_io)
-  if image.size != ground_truth.size:
-    raise ValueError(
-        'Train image and ground truth image should be of the same size',
-        image.size, ground_truth.size, img_path, gt_path)
-
+  sys.stdout.write('\r>> Processing %s, %s' %
+                   (data['img_path'], data['gt_path']))
+  sys.stdout.flush()
+  encoded_img = img_fn(img_path)
+  encoded_gt = gt_fn(gt_path)
   example = tf.train.Example(
       features=tf.train.Features(
           feature={
-              'image/encoded': _bytes_feature(encoded_img),
-              'ground_truth/encoded': _bytes_feature(encoded_gt)
+            'image/encoded': _bytes_feature(encoded_img),
+            'image/size': _int64_feature(get_img_size(encoded_img)),
+            'ground_truth/encoded': _bytes_feature(encoded_gt),
+            'ground_truth/size': _int64_feature(get_img_size(encoded_gt)),
           }))
   return example
 
