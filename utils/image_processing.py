@@ -107,7 +107,7 @@ def bgr_to_rgb(images, name=None):
     return images
 
 
-def preprocess(image, ground_truth, height, width, mean, is_training):
+def preprocess(image, ground_truth, out_size, mean, is_training):
   """ Preprocess image and ground truth annotation.
 
   Args:
@@ -130,14 +130,13 @@ def preprocess(image, ground_truth, height, width, mean, is_training):
   #       4-D Tensor
   depth_i = image.shape.as_list()[2]
   depth_gt = ground_truth.shape.as_list()[2]
+  out_height, out_width = out_size
 
   if is_training:
     combined = tf.concat([image, ground_truth], axis=2)
 
-    combined = tf.image.resize_image_with_crop_or_pad(combined, int(
-      height * 1.2), int(width * 1.2))
-
-    combined = tf.random_crop(combined, [height, width, depth_i + depth_gt])
+    combined = tf.random_crop(
+      combined, [out_height, out_width, depth_i + depth_gt])
 
     combined = tf.image.random_flip_left_right(combined)
 
@@ -145,9 +144,9 @@ def preprocess(image, ground_truth, height, width, mean, is_training):
     ground_truth = combined[:, :, depth_i:]
 
   else:
-    image = tf.image.resize_image_with_crop_or_pad(image, height, width)
+    image = tf.image.resize_image_with_crop_or_pad(image, out_height, out_width)
     ground_truth = tf.image.resize_image_with_crop_or_pad(
-      ground_truth, height, width)
+      ground_truth, out_height, out_width)
 
   image = tf.cast(image, dtype=tf.float32)
   image = image - mean
