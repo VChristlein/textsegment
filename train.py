@@ -51,6 +51,9 @@ parser.add_argument('--dataset', type=str, default='dibco',
                     help='The dataset to train with. Possible datasets: ' + \
                          '`dibco`, `hisdb`.')
 
+parser.add_argument('--crf_training', type=bool, default=True,
+                    help='After normal training train a downstream crf')
+
 FLAGS = parser.parse_args()
 
 if FLAGS.dataset == 'dibco':
@@ -96,7 +99,7 @@ def main(unused_argv):
 
   decay_steps = int(batches_per_epoch * _NUM_EPOCHS_PER_DECAY)
 
-  for use_crf in range(2):
+  for use_crf in range(2 if FLAGS.crf_training else 1):
     if use_crf:
       print('Now training with a downstream CRF!')
       # The implementation only supports a batch size of 1
@@ -147,7 +150,8 @@ def main(unused_argv):
         hooks=[logging_hook])
 
       # Evaluate the model and print results
-      print('Evaluating model for epoch {} ...'.format(i * FLAGS.epochs_per_eval))
+      print('Evaluating model for epoch {} ...' \
+            .format(i * FLAGS.epochs_per_eval))
       eval_results = classifier.evaluate(
         input_fn=input_val)
       print(eval_results)
