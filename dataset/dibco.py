@@ -105,8 +105,11 @@ def dibco_input_fn(is_training,
   def dataset_parser(record):
     keys_to_features = {
       'image/encoded': tf.FixedLenFeature((), tf.string, default_value=''),
-      'ground_truth/encoded': tf.FixedLenFeature(
-        (), tf.string, default_value='')
+      'image/size': tf.FixedLenFeature((2), tf.int64, default_value=[0, 0]),
+      'ground_truth/encoded':
+        tf.FixedLenFeature((), tf.string, default_value=''),
+      'ground_truth/size':
+        tf.FixedLenFeature((2), tf.int64, default_value=[0, 0]),
     }
     parsed = tf.parse_single_example(record, keys_to_features)
 
@@ -115,7 +118,9 @@ def dibco_input_fn(is_training,
     gt = tf.image.decode_png(
       parsed['ground_truth/encoded'], channels=channels_gt)
 
-    image, gt = preprocess(image, gt, height, width, mean, is_training)
+    out_size = (height, width)
+
+    image, gt = preprocess(image, gt, out_size, mean, is_training)
     image = scale(image, scale_factor=img_scale_factor)
     gt = scale(gt, out_size=label_size)
     gt = map_ground_truth(gt, get_dibco_palette())
