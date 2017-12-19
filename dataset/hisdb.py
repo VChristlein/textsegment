@@ -69,6 +69,7 @@ def prepare_hisdb(data_dir=DEFAULT_DATA_DIR,
       example = dict_to_example(data, gt_fn=parse_xml)
       val_writer.write(example.SerializeToString())
     val_writer.close()
+    print()
 
   return meta_data
 
