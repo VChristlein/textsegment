@@ -104,7 +104,7 @@ def unet_model_fn_gen(unet_depth,
                       num_classes,
                       input_shape,
                       ignore_last_class=False,
-                      get_gt_fn=lambda input: input,
+                      get_gt_fn=None,
                       initial_learning_rate=0.1,
                       momentum=0.9,
                       learning_rate_decay_every_n_steps=None,
@@ -121,6 +121,9 @@ def unet_model_fn_gen(unet_depth,
 
   if unet_depth not in model_params:
     raise ValueError('Not a valid unet size.', unet_depth)
+
+  if get_gt_fn is None:
+    get_gt_fn = lambda input: input
 
   params = model_params[unet_depth]
 
@@ -231,6 +234,12 @@ def unet_model_fn_gen(unet_depth,
       mode_str = 'eval'
 
     tf.summary.image(mode_str + '/prediction', result, max_outputs=6)
+
+    if num_classes == 2:
+      distribution = predictions['probabilities'][:,:,:,0] * 255
+      distribution = tf.expand_dims(tf.cast(distribution, dtype=tf.uint8), -1)
+      tf.summary.image(mode_str + '/prediction_distribution',
+                       distribution, max_outputs=6)
 
     # Create a tensor named train_accuracy for logging purposes
     tf.identity(accuracy[1], name='train_accuracy')

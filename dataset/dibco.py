@@ -62,6 +62,7 @@ def prepare_dibco(data_dir=DEFAULT_DATA_DIR,
       example = dict_to_example(data)
       val_writer.write(example.SerializeToString())
     val_writer.close()
+    print()
 
   return get_dibco_meta_data()
 
