@@ -144,9 +144,14 @@ def unet_model_fn_gen(unet_depth,
     if crf_post_processing:
       if logits.get_shape().as_list()[0] != 1:
         raise ValueError('Batch size must be one for crf training.')
-      num_iterations = 3
+      num_iterations = 10
     else:
       num_iterations = 0
+
+    # Save summary before crf post processing
+    logits_argmax = tf.argmax(logits, axis=3)
+    tf.summary.image(mode_str + '/prediction_before_crf', 
+      get_gt_fn(logits_argmax), max_outputs=6)
     logits = crf(
       inputs=[logits, tf.transpose(inputs, [0, 3, 1, 2])],
       num_classes=num_classes,
