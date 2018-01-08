@@ -157,9 +157,7 @@ def unet_model_fn_gen(unet_depth,
     tf.summary.scalar('batch_size', tf.shape(logits)[0])
 
     # Save summary before crf post processing
-    print('logits', logits)
     logits_argmax = tf.argmax(tf.transpose(logits, [0, 2, 3, 1]), axis=3)
-    print('logits_argmax', logits_argmax)
     tf.summary.image(mode_str + '/prediction_before_crf', 
       get_gt_fn(logits_argmax), max_outputs=6)
     logits = crf(
@@ -167,7 +165,6 @@ def unet_model_fn_gen(unet_depth,
       num_classes=num_classes,
       data_format=data_format,
       num_iterations=num_iterations)
-    print('logits', logits)
 
     if data_format == 'channels_first':
       # TODO: Is there a better way to compute the loss without a transpose?
