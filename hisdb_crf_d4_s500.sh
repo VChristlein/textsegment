@@ -22,18 +22,20 @@ cd /cluster/ko01jaxu/ma-proj
 ./utils/crfasrnn/compile_high_dim_filter.sh
 
 DATA_SET=hisdb
-MODEL_DIR=/cluster/ko01jaxu/models/$DATA_SET/crf
+MODEL_DIR=/cluster/ko01jaxu/models/$DATA_SET/crf_d4
 DATA_DIR=/tmp/ko01jaxu/$DATA_SET
 if [ -d "$DATA_DIR" ]; then
   rm -rf $DATA_DIR
 fi
 
 python3 /cluster/ko01jaxu/ma-proj/train.py \
+    --unet_depth=4 \
+    --image_patch_size=500 \
     --model_dir=$MODEL_DIR \
     --data_dir=$DATA_DIR \
-    --batch_size=8 \
+    --batch_size=2 \
     --epochs_per_eval=500 \
-    --train_epochs=4000 \
+    --train_epochs=5000 \
     --buffer_size=250 \
     --dataset=$DATA_SET \
     --crf_training=True
