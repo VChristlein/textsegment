@@ -141,15 +141,25 @@ def unet_model_fn_gen(unet_depth,
     logits = unet(inputs=inputs, blocks=params, num_classes=num_classes,
                   is_training=is_training, data_format=data_format)
 
+    if is_training:
+      mode_str = 'train'
+    else:
+      mode_str = 'eval'
+
+    crf_log_tensor = tf.convert_to_tensor(crf_post_processing)
+    tf.summary.scalar('CRF', crf_log_tensor)
     if crf_post_processing:
       if logits.get_shape().as_list()[0] != 1:
         raise ValueError('Batch size must be one for crf training.')
       num_iterations = 10
     else:
       num_iterations = 0
+    tf.summary.scalar('batch_size', tf.shape(logits)[0])
 
     # Save summary before crf post processing
-    logits_argmax = tf.argmax(logits, axis=3)
+    print('logits', logits)
+    logits_argmax = tf.argmax(tf.transpose(logits, [0, 2, 3, 1]), axis=3)
+    print('logits_argmax', logits_argmax)
     tf.summary.image(mode_str + '/prediction_before_crf', 
       get_gt_fn(logits_argmax), max_outputs=6)
     logits = crf(
@@ -157,6 +167,7 @@ def unet_model_fn_gen(unet_depth,
       num_classes=num_classes,
       data_format=data_format,
       num_iterations=num_iterations)
+    print('logits', logits)
 
     if data_format == 'channels_first':
       # TODO: Is there a better way to compute the loss without a transpose?
@@ -233,10 +244,6 @@ def unet_model_fn_gen(unet_depth,
     metrics = {'accuracy': accuracy}
 
     result = get_gt_fn(predictions['classes'])
-    if is_training:
-      mode_str = 'train'
-    else:
-      mode_str = 'eval'
 
     tf.summary.image(mode_str + '/prediction', result, max_outputs=6)
 

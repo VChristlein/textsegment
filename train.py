@@ -28,7 +28,7 @@ parser.add_argument('--model_dir', type=str, default='/tmp/unet_model',
 parser.add_argument('--unet_depth', type=int, default=3,
                     help='The size of the Unet model to use.')
 
-parser.add_argument('--train_epochs', type=int, default=1000,
+parser.add_argument('--train_epochs', type=int, default=1500,
                     help='The number of epochs to train.')
 
 parser.add_argument('--epochs_per_eval', type=int, default=100,
@@ -72,7 +72,7 @@ if FLAGS.buffer_size == 0:
 
 # Scale the learning rate linearly with the batch size.
 _INITIAL_LEARNING_RATE = 0.1 * FLAGS.batch_size / 64
-_NUM_EPOCHS_PER_DECAY = FLAGS.train_epochs / 4
+_NUM_EPOCHS_PER_DECAY = FLAGS.train_epochs / 2
 _MOMENTUM = 0.9
 
 
@@ -97,10 +97,15 @@ def main(unused_argv):
   # Set up a RunConfig to only save checkpoints once per training cycle.
   run_config = tf.estimator.RunConfig().replace(save_checkpoints_secs=1000)
 
-  decay_steps = int(batches_per_epoch * _NUM_EPOCHS_PER_DECAY)
-
   for use_crf in range(2 if FLAGS.crf_training else 1):
-    if use_crf:
+    decay_steps = int(batches_per_epoch * _NUM_EPOCHS_PER_DECAY)
+    if not use_crf:
+      if FLAGS.crf_training:
+        # We now pretrain the model without the crf
+        # Therefor don't use weight decay
+        decay_steps = int(batches_per_epoch * _NUM_EPOCHS_PER_DECAY 
+                            * FLAGS.train_epochs)
+    else:
       print('Now training with a downstream CRF!')
       # The implementation only supports a batch size of 1
       FLAGS.batch_size = 1
@@ -139,7 +144,7 @@ def main(unused_argv):
       tensors_to_log = {
         'learning_rate': 'learning_rate',
         'cross_entropy': 'cross_entropy',
-        'train_accuracy': 'train_accuracy'
+        'train_accuracy': 'train_accuracy',
       }
 
       logging_hook = tf.train.LoggingTensorHook(
