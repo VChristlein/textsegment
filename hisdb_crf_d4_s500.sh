@@ -30,7 +30,7 @@ fi
 
 python3 /cluster/ko01jaxu/ma-proj/train.py \
     --unet_depth=4 \
-    --image_patch_size=500 \
+    --img_patch_size=500 \
     --model_dir=$MODEL_DIR \
     --data_dir=$DATA_DIR \
     --batch_size=2 \
