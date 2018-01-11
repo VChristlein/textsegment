@@ -8,7 +8,7 @@ import os
 import tensorflow as tf
 
 from models.unet import unet_model_fn_gen as model_fn_generator
-from utils.image_processing import get_gt_img
+from utils.tf_image_processing import get_gt_img
 from dataset.dibco import prepare_dibco, \
                           dibco_input_fn, \
                           get_dibco_palette

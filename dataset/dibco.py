@@ -7,7 +7,7 @@ import os
 import tensorflow as tf
 
 from utils.data import maybe_download, dict_to_example, get_label_map_dict
-from utils.image_processing import preprocess, scale, inv_preprocess, \
+from utils.tf_image_processing import preprocess, scale, inv_preprocess, \
   random_rotate, get_gt_img, map_ground_truth
 
 

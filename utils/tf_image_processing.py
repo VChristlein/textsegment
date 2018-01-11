@@ -111,8 +111,8 @@ def preprocess(image, ground_truth, out_size, mean, is_training):
   """ Preprocess image and ground truth annotation.
 
   Args:
-    image: 3-D Tensor of shape (num_rows, num_columns, num_channels) (HWC).
-    ground_truth: 3-D Tensor of shape (num_rows, num_columns, num_channels)
+    img: 3-D Tensor of shape (num_rows, num_columns, num_channels) (HWC).
+    gt: 3-D Tensor of shape (num_rows, num_columns, num_channels)
         (HWC).
     height: Int. Output height of the preprocessed image.
     width: Int. Output width of the preprocessed image.
@@ -126,33 +126,43 @@ def preprocess(image, ground_truth, out_size, mean, is_training):
           (`height`, `width`, -1).
   """
   mean = tf.convert_to_tensor(mean, dtype=tf.float32)
+
   # TODO: Images and ground_truth should also have the possibility to be a
   #       4-D Tensor
-  depth_i = image.shape.as_list()[2]
-  depth_gt = ground_truth.shape.as_list()[2]
+  img = tf.convert_to_tensor(image)
+  depth_i = img.shape.as_list()[2]
+
+  if ground_truth is not None:
+    gt = tf.convert_to_tensor(ground_truth)
+    depth_gt = gt.shape.as_list()[2]
+  else:
+    gt = None
+
   out_height, out_width = out_size
 
   if is_training:
-    combined = tf.concat([image, ground_truth], axis=2)
+    combined = tf.concat([img, gt], axis=2)
 
     combined = tf.random_crop(
       combined, [out_height, out_width, depth_i + depth_gt])
 
     combined = tf.image.random_flip_left_right(combined)
 
-    image = combined[:, :, :depth_i]
-    ground_truth = combined[:, :, depth_i:]
+    img = combined[:, :, :depth_i]
+    gt = combined[:, :, depth_i:]
 
   else:
-    image = tf.image.resize_image_with_crop_or_pad(image, out_height, out_width)
-    ground_truth = tf.image.resize_image_with_crop_or_pad(
-      ground_truth, out_height, out_width)
+    img = tf.image.resize_image_with_crop_or_pad(img, out_height, out_width)
+    if gt is not None:
+      gt = tf.image.resize_image_with_crop_or_pad(
+        gt, out_height, out_width)
 
-  image = tf.cast(image, dtype=tf.float32)
-  image = image - mean
-  image = rgb_to_bgr(image)
-  ground_truth = tf.cast(ground_truth, dtype=tf.int32)
-  return image, ground_truth
+  img = tf.cast(img, dtype=tf.float32)
+  img = img - mean
+  img = rgb_to_bgr(img)
+  if gt is not None:
+    gt = tf.cast(gt, dtype=tf.int32)
+  return img, gt
 
 
 def inv_preprocess(images, mean, name=None):

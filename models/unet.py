@@ -146,20 +146,21 @@ def unet_model_fn_gen(unet_depth,
     else:
       mode_str = 'eval'
 
-    crf_log_tensor = tf.convert_to_tensor(crf_post_processing)
-    tf.summary.scalar('CRF', crf_log_tensor)
     if crf_post_processing:
       if logits.get_shape().as_list()[0] != 1:
         raise ValueError('Batch size must be one for crf training.')
       num_iterations = 10
     else:
       num_iterations = 0
-    tf.summary.scalar('batch_size', tf.shape(logits)[0])
 
     # Save summary before crf post processing
-    logits_argmax = tf.argmax(tf.transpose(logits, [0, 2, 3, 1]), axis=3)
-    tf.summary.image(mode_str + '/prediction_before_crf', 
-      get_gt_fn(logits_argmax), max_outputs=6)
+    logits_ = logits
+    if data_format == 'channels_first':
+      logits_ = tf.transpose(logits_, [0, 2, 3, 1])
+    res_before_crf = get_gt_fn(tf.argmax(logits_, axis=3))
+    tf.summary.image(mode_str + '/prediction_before_crf',
+      res_before_crf, max_outputs=6)
+
     logits = crf(
       inputs=[logits, tf.transpose(inputs, [0, 3, 1, 2])],
       num_classes=num_classes,
@@ -171,6 +172,18 @@ def unet_model_fn_gen(unet_depth,
       # Transform nchw back to nhwc for loss calculation
       logits = tf.transpose(logits, [0, 2, 3, 1])
 
+    logits_argmax = tf.argmax(logits, axis=3)
+    tf.summary.histogram('logits', logits_argmax)
+
+    predictions = {
+      'classes': logits_argmax,
+      'result': get_gt_fn(logits_argmax),
+      'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
+    }
+
+    if mode == tf.estimator.ModeKeys.PREDICT:
+      return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
+
     flat_labels = tf.reshape(labels, [-1])
     flat_logits = tf.reshape(logits, [-1, num_classes])
 
@@ -181,18 +194,7 @@ def unet_model_fn_gen(unet_depth,
       flat_labels = tf.cast(tf.gather(flat_labels, indices), tf.int32)
       flat_logits = tf.gather(flat_logits, indices)
 
-    logits_argmax = tf.argmax(logits, axis=3)
-    tf.summary.histogram('logits', logits_argmax)
-
-    predictions = {
-      'classes': logits_argmax,
-      'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
-    }
-
     tf.summary.histogram('labels', flat_labels)
-
-    if mode == tf.estimator.ModeKeys.PREDICT:
-      return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
     # Calculate loss, which includes softmax cross entropy and L2 regularization.
     cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
@@ -203,6 +205,10 @@ def unet_model_fn_gen(unet_depth,
     # Create a tensor named cross_entropy for logging purposes.
     tf.identity(cross_entropy, name='cross_entropy')
     tf.summary.scalar('cross_entropy', cross_entropy)
+
+    crf_log_tensor = tf.convert_to_tensor(crf_post_processing)
+    tf.summary.scalar('CRF', crf_log_tensor)
+    tf.summary.scalar('batch_size', tf.shape(logits)[0])
 
     # Add weight decay to the loss.
     loss = cross_entropy + weight_decay * tf.add_n(
@@ -240,9 +246,8 @@ def unet_model_fn_gen(unet_depth,
     accuracy = tf.metrics.accuracy(labels, predictions['classes'])
     metrics = {'accuracy': accuracy}
 
-    result = get_gt_fn(predictions['classes'])
-
-    tf.summary.image(mode_str + '/prediction', result, max_outputs=6)
+    tf.summary.image(mode_str + '/prediction', predictions['result'],
+                     max_outputs=6)
 
     if num_classes == 2:
       distribution = predictions['probabilities'][:,:,:,0] * 255
