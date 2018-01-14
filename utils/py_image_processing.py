@@ -21,7 +21,7 @@ class PatchGenerator():
     self.patch_meta = []
 
   def _open_image(self, path):
-    return np.asarray(Image.open(path))
+    return np.asarray(Image.open(path).convert('RGB'))
 
   def get_patch_size(self):
     return self.p_h, self.p_w

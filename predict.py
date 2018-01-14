@@ -69,6 +69,11 @@ def main(unused_argv):
   width = int(width * FLAGS.scale_factor)
   depth = img_meta['img_channels']
 
+  print('Predicting {} given images.'.format(len(FLAGS.images)))
+
+  if not os.path.exists(FLAGS.out_dir):
+    os.makedirs(FLAGS.out_dir)
+
   # Using the Winograd non-fused algorithms provides a small performance boost.
   os.environ['TF_ENABLE_WINOGRAD_NONFUSED'] = '1'
 
@@ -87,7 +92,7 @@ def main(unused_argv):
   # Predict output of given images
   for img_path in FLAGS.images:
     img_name = os.path.basename(img_path)
-    print('Evaluation img %s' % img_name)
+    print('Evaluation image %s... ' % img_name, end='')
 
     p_gen = PatchGenerator(img_path, (height, width))
 
@@ -114,11 +119,13 @@ def main(unused_argv):
     predictions = classifier.predict(lambda: input_fn(p_gen, img_meta['img_mean']))
     for i, pred in enumerate(predictions):
       p_meta = p_gen.get_patch_meta(i)
-      print(p_meta)
       res_img[p_meta.pos_h:p_meta.pos_h + p_meta.height,
               p_meta.pos_w:p_meta.pos_w + p_meta.width] = \
         np.squeeze(pred['result'][:p_meta.height, :p_meta.width, :], axis=2)
-    save_img(res_img, os.path.splitext(img_name)[0] + '_prediction' + '.png')
+    path = os.path.join(FLAGS.out_dir,
+                        os.path.splitext(img_name)[0] + '_prediction' + '.png')
+    save_img(res_img, path)
+    print('finished!')
 
 
 if __name__ == '__main__':
