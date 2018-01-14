@@ -117,6 +117,7 @@ def unet_model_fn_gen(unet_depth,
     2: {"size": 2, "filters": [64, 128], "keep_prob": 0.75},
     3: {"size": 3, "filters": [64, 128, 256], "keep_prob": 0.75},
     4: {"size": 4, "filters": [64, 128, 256, 512], "keep_prob": 0.75}
+    5: {"size": 5, "filters": [64, 128, 256, 256, 512], "keep_prob": 0.75}
   }
 
   if unet_depth not in model_params:
