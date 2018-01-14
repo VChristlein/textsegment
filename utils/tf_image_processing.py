@@ -71,7 +71,7 @@ def random_rotate(images, ground_truth=None, stddev=0.5, name=None):
 
 def rgb_to_bgr(images, name=None):
   """ Transforms a image tensor from RGB to BGR data format.
-  
+
   Args:
     images: A tensor of shape (num_images, num_rows, num_columns, num_channels)
        (NHWC), (num_rows, num_columns, num_channels) (HWC), where num_channels
@@ -90,7 +90,7 @@ def rgb_to_bgr(images, name=None):
 
 def bgr_to_rgb(images, name=None):
   """ Transforms a image tensor from BGR to RGB data format.
-  
+
   Args:
     images: A tensor of shape (num_images, num_rows, num_columns, num_channels)
        (NHWC), (num_rows, num_columns, num_channels) (HWC), where num_channels
@@ -111,11 +111,10 @@ def preprocess(image, ground_truth, out_size, mean, is_training):
   """ Preprocess image and ground truth annotation.
 
   Args:
-    img: 3-D Tensor of shape (num_rows, num_columns, num_channels) (HWC).
-    gt: 3-D Tensor of shape (num_rows, num_columns, num_channels)
+    image: 3-D Tensor of shape (num_rows, num_columns, num_channels) (HWC).
+    ground_truth: 3-D Tensor of shape (num_rows, num_columns, num_channels)
         (HWC).
-    height: Int. Output height of the preprocessed image.
-    width: Int. Output width of the preprocessed image.
+    out_size: Tuple of Int. Output height and width of the preprocessed image.
     mean: Python array or 1-D Tensor with the same length as the number of
         channels of `image`.
     is_training: Bool. If `True` the image and ground truth annotation will be
@@ -129,40 +128,40 @@ def preprocess(image, ground_truth, out_size, mean, is_training):
 
   # TODO: Images and ground_truth should also have the possibility to be a
   #       4-D Tensor
-  img = tf.convert_to_tensor(image)
-  depth_i = img.shape.as_list()[2]
+  image = tf.convert_to_tensor(image)
+  depth_i = image.shape.as_list()[2]
 
   if ground_truth is not None:
-    gt = tf.convert_to_tensor(ground_truth)
-    depth_gt = gt.shape.as_list()[2]
+    ground_truth = tf.convert_to_tensor(ground_truth)
+    depth_ground_truth = ground_truth.shape.as_list()[2]
   else:
-    gt = None
+    ground_truth = None
 
   out_height, out_width = out_size
 
   if is_training:
-    combined = tf.concat([img, gt], axis=2)
+    combined = tf.concat([image, ground_truth], axis=2)
 
     combined = tf.random_crop(
-      combined, [out_height, out_width, depth_i + depth_gt])
+      combined, [out_height, out_width, depth_i + depth_ground_truth])
 
     combined = tf.image.random_flip_left_right(combined)
 
-    img = combined[:, :, :depth_i]
-    gt = combined[:, :, depth_i:]
+    image = combined[:, :, :depth_i]
+    ground_truth = combined[:, :, depth_i:]
 
   else:
-    img = tf.image.resize_image_with_crop_or_pad(img, out_height, out_width)
-    if gt is not None:
-      gt = tf.image.resize_image_with_crop_or_pad(
-        gt, out_height, out_width)
+    image = tf.image.resize_image_with_crop_or_pad(image, out_height, out_width)
+    if ground_truth is not None:
+      ground_truth = tf.image.resize_image_with_crop_or_pad(
+        ground_truth, out_height, out_width)
 
-  img = tf.cast(img, dtype=tf.float32)
-  img = img - mean
-  img = rgb_to_bgr(img)
-  if gt is not None:
-    gt = tf.cast(gt, dtype=tf.int32)
-  return img, gt
+  image = tf.cast(image, dtype=tf.float32)
+  image = image - mean
+  image = rgb_to_bgr(image)
+  if ground_truth is not None:
+    ground_truth = tf.cast(ground_truth, dtype=tf.int32)
+  return image, ground_truth
 
 
 def inv_preprocess(images, mean, name=None):

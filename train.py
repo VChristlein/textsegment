@@ -112,7 +112,7 @@ def main(unused_argv):
 
     input_train = lambda: input_fn(
       is_training=True,
-      img_size=FLAGS.img_patch_size,
+      img_size=(height, width),
       img_scale_factor=FLAGS.scale_factor,
       num_epochs=FLAGS.epochs_per_eval,
       batch_size=FLAGS.batch_size,
@@ -121,7 +121,7 @@ def main(unused_argv):
 
     input_val = lambda: input_fn(
       is_training=False,
-      img_size=FLAGS.img_patch_size,
+      img_size=(height, width),
       img_scale_factor=FLAGS.scale_factor,
       data_dir=FLAGS.data_dir)
 
