@@ -31,6 +31,9 @@ parser.add_argument('--model_dir', type=str, default='/tmp/unet_model',
 parser.add_argument('--unet_depth', type=int, default=3,
                     help='The size of the Unet model to use.')
 
+parser.add_argument('--filter_size', type=int, default=3,
+                    help='Convolution filter size.')
+
 parser.add_argument('--batch_size', type=int, default=1,
                     help='The number of images per batch.')
 
@@ -80,8 +83,9 @@ def main(unused_argv):
   model_fn = model_fn_generator(
     unet_depth=FLAGS.unet_depth,
     num_classes=img_meta['num_classes'],
-    get_gt_fn=lambda predictions: get_gt_img(predictions, get_palette()),
     input_shape=[height, width, depth],
+    filter_size=FLAGS.filter_size,
+    get_gt_fn=lambda predictions: get_gt_img(predictions, get_palette()),
     crf_post_processing=True,
     save_dir=FLAGS.model_dir)
 

@@ -7,13 +7,13 @@ from collections import OrderedDict
 from utils.layers import *
 
 
-def unet_block(inputs, filters, keep_prob, process_fn, is_training,
+def unet_block(inputs, filters, filter_size, keep_prob, process_fn, is_training,
                data_format):
   inputs = batch_norm_relu(
     inputs=inputs, is_training=is_training, data_format=data_format)
 
   inputs = conv2d_fixed_padding(
-    inputs=inputs, filters=filters, kernel_size=3, strides=1,
+    inputs=inputs, filters=filters, kernel_size=filter_size, strides=1,
     use_bias=False, data_format=data_format)
   inputs = dropout(
     inputs=inputs, keep_prob=keep_prob, is_training=is_training)
@@ -21,7 +21,7 @@ def unet_block(inputs, filters, keep_prob, process_fn, is_training,
     inputs=inputs, is_training=is_training, data_format=data_format)
 
   inputs = conv2d_fixed_padding(
-    inputs=inputs, filters=filters, kernel_size=3, strides=1,
+    inputs=inputs, filters=filters, kernel_size=filter_size, strides=1,
     use_bias=False, data_format=data_format)
   inputs = dropout(
     inputs=inputs, keep_prob=keep_prob, is_training=is_training)
@@ -33,7 +33,8 @@ def unet_block(inputs, filters, keep_prob, process_fn, is_training,
   return shortcut, output
 
 
-def unet(inputs, blocks, num_classes, is_training, data_format=None):
+def unet(inputs, blocks, num_classes, filter_size, is_training,
+         data_format=None):
   if data_format == 'channels_first':
     # Convert from channels_last (NHWC) to channels_first (NCHW). This
     # provides a large performance boost on GPU.
@@ -67,6 +68,7 @@ def unet(inputs, blocks, num_classes, is_training, data_format=None):
     shortcuts[i], net = unet_block(
       inputs=net,
       filters=blocks["filters"][i],
+      filter_size=filter_size,
       keep_prob=blocks["keep_prob"],
       process_fn=pool,
       is_training=is_training,
@@ -103,6 +105,7 @@ def unet(inputs, blocks, num_classes, is_training, data_format=None):
 def unet_model_fn_gen(unet_depth,
                       num_classes,
                       input_shape,
+                      filter_size=3,
                       ignore_last_class=False,
                       get_gt_fn=None,
                       initial_learning_rate=0.1,
@@ -140,7 +143,8 @@ def unet_model_fn_gen(unet_depth,
     is_training = mode == tf.estimator.ModeKeys.TRAIN
     inputs = tf.reshape(features, [-1, img_height, img_width, img_depth])
     logits = unet(inputs=inputs, blocks=params, num_classes=num_classes,
-                  is_training=is_training, data_format=data_format)
+                  filter_size=filter_size, is_training=is_training,
+                  data_format=data_format)
 
     if is_training:
       mode_str = 'train'
