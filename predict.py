@@ -123,11 +123,11 @@ def main(unused_argv):
     predictions = classifier.predict(lambda: input_fn(p_gen, img_meta['img_mean']))
     for i, pred in enumerate(predictions):
       p_meta = p_gen.get_patch_meta(i)
-      distribution = pred['probabilities'][0, :p_meta.height, :p_meta.width, 0]
+      distribution = np.asarray(
+        pred['probabilities'][:p_meta.height, :p_meta.width, 0])
       distribution *= 255
-      distribution = tf.cast(distribution, dtype=tf.uint8)
       res_img[p_meta.pos_h:p_meta.pos_h + p_meta.height,
-              p_meta.pos_w:p_meta.pos_w + p_meta.width] = distribution
+              p_meta.pos_w:p_meta.pos_w + p_meta.width] = distribution.astype(np.uint8)
 
     path = os.path.join(FLAGS.out_dir,
                         os.path.splitext(img_name)[0] + '_prediction' + '.png')
