@@ -98,7 +98,7 @@ def main(unused_argv):
     img_name = os.path.basename(img_path)
     print('Evaluation image %s... ' % img_name, end='')
 
-    p_gen = PatchGenerator(img_path, (height, width))
+    p_gen = PatchGenerator(img_path, (height, width), n_overlap=height / 2)
 
     # Allocate some image buffer
     res_img = np.empty(p_gen.get_img_shape()[:-1], dtype=np.uint8)
