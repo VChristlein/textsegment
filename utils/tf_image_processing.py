@@ -136,10 +136,13 @@ def preprocess(image, ground_truth, out_size, mean, is_training):
     depth_ground_truth = ground_truth.shape.as_list()[2]
   else:
     ground_truth = None
+    depth_ground_truth = 0
 
   out_height, out_width = out_size
 
   if is_training:
+    # Combine images so that we can randomly crop only one matrix for both
+    # Image and ground truth label
     combined = tf.concat([image, ground_truth], axis=2)
 
     combined = tf.random_crop(
@@ -150,6 +153,11 @@ def preprocess(image, ground_truth, out_size, mean, is_training):
     image = combined[:, :, :depth_i]
     ground_truth = combined[:, :, depth_i:]
 
+    # NOTE: since per_image_standardization zeros the mean and makes
+    # the stddev unit, this likely has no effect see tensorflow#1458.
+    image = tf.image.random_brightness(image, max_delta=63)
+    image = tf.image.random_contrast(image, lower=0.2, upper=1.8)
+
   else:
     image = tf.image.resize_image_with_crop_or_pad(image, out_height, out_width)
     if ground_truth is not None:
@@ -159,6 +167,10 @@ def preprocess(image, ground_truth, out_size, mean, is_training):
   image = tf.cast(image, dtype=tf.float32)
   image = image - mean
   image = rgb_to_bgr(image)
+
+  # Subtract off the mean and divide by the variance of the pixels.
+  image = tf.image.per_image_standardization(image)
+
   if ground_truth is not None:
     ground_truth = tf.cast(ground_truth, dtype=tf.int32)
   return image, ground_truth

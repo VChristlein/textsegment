@@ -2,6 +2,7 @@ import collections
 
 import numpy as np
 from PIL import Image
+import cv2
 
 PatchMeta = collections.namedtuple('Patch', 'height, width, pos_h, pos_w')
 
@@ -63,3 +64,8 @@ class PatchGenerator():
 def save_img(image, path):
   img = Image.fromarray(image)
   img.save(path, format='png')
+
+
+def cv_distanceTransform(gt_label):
+  print('cv_distanceTransform')
+  return cv2.distanceTransform(gt_label, cv2.DIST_L2, 3)

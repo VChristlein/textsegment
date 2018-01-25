@@ -92,14 +92,15 @@ def hisdb_input_fn(is_training,
                    buffer_size=200,
                    data_dir=DEFAULT_DATA_DIR):
   if isinstance(img_size, tuple):
-    height, width = img_size
+    out_height, out_width = img_size
   else:
-    height = width = img_size
+    out_height = out_width = img_size
+  out_size = (out_height, out_width)
   channels_img, channels_gt = (3, 1)
-  out_height = int(img_scale_factor * height)
-  out_width = int(img_scale_factor * width)
+  process_heigh = int(out_height / img_scale_factor)
+  process_width = int(out_width / img_scale_factor)
   if label_size is None:
-    label_size = (out_height, out_width)
+    label_size = (process_heigh, process_width)
 
   record = os.path.join(
     data_dir, 'train.record' if is_training else 'val.record')
@@ -126,11 +127,10 @@ def hisdb_input_fn(is_training,
     gt = tf.image.decode_png(
       parsed['ground_truth/encoded'], channels=channels_gt)
 
-    out_size = (height, width)
-
-    image, gt = preprocess(image, gt, out_size, mean, is_training)
-    image = scale(image, scale_factor=img_scale_factor)
-    gt = scale(gt, out_size=label_size)
+    image, gt = preprocess(image, gt, (process_heigh, process_width), mean,
+                           is_training)
+    image = scale(image, out_size=out_size, method='BILINEAR')
+    gt = scale(gt, out_size=out_size)
     gt = map_ground_truth(gt, get_hisdb_palette())
     image, gt = random_rotate(image, gt)
     return image, gt
@@ -141,11 +141,9 @@ def hisdb_input_fn(is_training,
 
   iterator = data_set.batch(batch_size).make_one_shot_iterator()
   images, labels = iterator.get_next()
-  labels = tf.image.resize_nearest_neighbor(labels, label_size)
-  images = tf.reshape(images, [batch_size, out_width, out_height, channels_img])
 
-  labels = tf.reshape(
-    labels, [batch_size, label_size[0], label_size[1], channels_gt])
+  images = tf.reshape(images, [batch_size, out_width, out_height, channels_img])
+  labels = tf.reshape(labels, [batch_size, out_width, out_height, channels_gt])
 
   if is_training:
     mode_str = 'train'

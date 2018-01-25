@@ -76,17 +76,18 @@ def conv2d_t(inputs, filters, out_h, out_w, kernel_size=(2, 2), strides=(1, 1),
   if data_format == 'channels_first':
     data_format_ = 'NCHW'
     channel_axis = 1
-  else:  # 'channels_last':
+  elif data_format == 'channels_last':
     data_format_ = 'NHWC'
     channel_axis = -1
+  else:
+    raise ValueError('`data_format` not in `channels_first`, `channels_last`.')
 
   inputs_shape = inputs.shape
   input_dim = inputs_shape[channel_axis]
 
   kernel_shape = kernel_size + (filters, input_dim)
 
-  with vs.variable_scope(
-      None, 'Conv2d_transpose', [inputs]) as sc:
+  with vs.variable_scope(None, 'Conv2d_transpose', [inputs]):
     kernel = vs.get_variable(
         name='kernel',
         shape=kernel_shape,
@@ -102,9 +103,12 @@ def conv2d_t(inputs, filters, out_h, out_w, kernel_size=(2, 2), strides=(1, 1),
     output_shape = (batch_size, out_h, out_w, filters)
     strides = (1, strides[0], strides[1], 1)
   output_shape_tensor = array_ops.stack(output_shape)
-  return tf.nn.conv2d_transpose(
+  output = tf.nn.conv2d_transpose(
       value=inputs, filter=kernel, output_shape=output_shape_tensor,
       strides=strides, padding=padding, data_format=data_format_)
+  if activation_fn is not None:
+    output = activation_fn(output)
+  return output
 
 
 def max_pooling2d(inputs, pool_size, strides, padding, data_format):

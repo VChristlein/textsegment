@@ -4,28 +4,30 @@ from __future__ import print_function
 
 from collections import OrderedDict
 
-from utils.layers import *
+import tensorflow as tf
+
+from utils import layers, metrics as m
 
 
 def unet_block(inputs, filters, filter_size, keep_prob, process_fn, is_training,
                data_format):
-  inputs = batch_norm_relu(
+  inputs = layers.batch_norm_relu(
     inputs=inputs, is_training=is_training, data_format=data_format)
 
-  inputs = conv2d_fixed_padding(
+  inputs = layers.conv2d_fixed_padding(
     inputs=inputs, filters=filters, kernel_size=filter_size, strides=1,
     use_bias=False, data_format=data_format)
-  inputs = dropout(
+  inputs = layers.dropout(
     inputs=inputs, keep_prob=keep_prob, is_training=is_training)
-  inputs = batch_norm_relu(
+  inputs = layers.batch_norm_relu(
     inputs=inputs, is_training=is_training, data_format=data_format)
 
-  inputs = conv2d_fixed_padding(
+  inputs = layers.conv2d_fixed_padding(
     inputs=inputs, filters=filters, kernel_size=filter_size, strides=1,
     use_bias=False, data_format=data_format)
-  inputs = dropout(
+  inputs = layers.dropout(
     inputs=inputs, keep_prob=keep_prob, is_training=is_training)
-  inputs = batch_norm_relu(
+  inputs = layers.batch_norm_relu(
     inputs=inputs, is_training=is_training, data_format=data_format)
 
   shortcut = inputs
@@ -43,22 +45,22 @@ def unet(inputs, blocks, num_classes, filter_size, is_training,
     net = inputs
 
   def pool(inputs):
-    return max_pooling2d(
+    return layers.max_pooling2d(
       inputs=inputs, pool_size=2, strides=2, padding='SAME',
       data_format=data_format)
 
   def conv_t(inputs, filters, out_h, out_w=None):
     if out_w == None:
       out_w = out_h
-    return conv2d_t(
+    return layers.conv2d_t(
       inputs=inputs, filters=filters, out_h=out_h, out_w=out_w, kernel_size=2,
       strides=2, data_format=data_format)
 
   def conv_relu_out(inputs, filters):
-    inputs = conv2d_fixed_padding(
+    inputs = layers.conv2d_fixed_padding(
       inputs=inputs, filters=filters, kernel_size=1, strides=1,
       use_bias=False, data_format=data_format)
-    return batch_norm_relu(
+    return layers.batch_norm_relu(
       inputs=inputs, is_training=is_training, data_format=data_format)
 
   shortcuts = OrderedDict()
@@ -168,7 +170,7 @@ def unet_model_fn_gen(unet_depth,
     tf.summary.image(mode_str + '/prediction_before_crf',
       res_before_crf, max_outputs=6)
 
-    logits = crf(
+    logits = layers.crf(
       inputs=[logits, tf.transpose(inputs, [0, 3, 1, 2])],
       num_classes=num_classes,
       data_format=data_format,
@@ -180,11 +182,10 @@ def unet_model_fn_gen(unet_depth,
       logits = tf.transpose(logits, [0, 2, 3, 1])
 
     logits_argmax = tf.argmax(logits, axis=3)
-    tf.summary.histogram('logits', logits_argmax)
 
     predictions = {
       'classes': logits_argmax,
-      'result': get_gt_fn(logits_argmax),
+      'result': get_gt_fn(logits_argmax),  # For image summary
       'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
     }
 
@@ -194,14 +195,12 @@ def unet_model_fn_gen(unet_depth,
     flat_labels = tf.reshape(labels, [-1])
     flat_logits = tf.reshape(logits, [-1, num_classes])
 
-    # Ignore the last class (the ignore/void label)
+    # Ignore the last class (ignore/void label)
     if ignore_last_class:
       indices = tf.squeeze(tf.where(tf.less_equal(
         flat_labels, num_classes - 1)), 1)
       flat_labels = tf.cast(tf.gather(flat_labels, indices), tf.int32)
       flat_logits = tf.gather(flat_logits, indices)
-
-    tf.summary.histogram('labels', flat_labels)
 
     # Calculate loss, which includes softmax cross entropy and L2 regularization.
     cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
@@ -224,7 +223,7 @@ def unet_model_fn_gen(unet_depth,
     if is_training:
       global_step = tf.train.get_or_create_global_step()
 
-      # Multiply the learning rate by 0.1 at 100, 150, and 200 epochs.
+      # Multiply the learning rate by 0.95 at 100, 150, and 200 epochs.
       if learning_rate_decay_every_n_steps is not None:
         learning_rate = tf.train.exponential_decay(
           learning_rate=initial_learning_rate,
@@ -251,7 +250,12 @@ def unet_model_fn_gen(unet_depth,
       train_op = None
 
     accuracy = tf.metrics.accuracy(labels, predictions['classes'])
-    metrics = {'accuracy': accuracy}
+    fmeasure = m.f1_score(labels, predictions['probabilities'][:, :, :, 1])
+    pfmeasure = m.pseudo_f1_score(labels,
+                                  predictions['probabilities'][:, :, :, 1])
+    metrics = {'accuracy': accuracy,
+               'f1_score': fmeasure,
+               'pf1_score': pfmeasure}
 
     tf.summary.image(mode_str + '/prediction', predictions['result'],
                      max_outputs=6)
@@ -265,6 +269,10 @@ def unet_model_fn_gen(unet_depth,
     # Create a tensor named train_accuracy for logging purposes
     tf.identity(accuracy[1], name='train_accuracy')
     tf.summary.scalar('train_accuracy', accuracy[1])
+    tf.identity(accuracy[1], name='train_f1_score')
+    tf.summary.scalar('train_f1_score', fmeasure[1])
+    tf.identity(accuracy[1], name='train_pf1_score')
+    tf.summary.scalar('train_pf1_score', pfmeasure[1])
 
     if is_training:
       # tf.Estimator handles summaries during training
