@@ -57,6 +57,9 @@ parser.add_argument('--dataset', type=str, default='dibco',
 parser.add_argument('--crf_training', type=bool, default=True,
                     help='After normal training train a downstream crf')
 
+parser.add_argument('--only_crf', type=bool, default=False,
+                    help='Start imidiatly with crf training')
+
 FLAGS = parser.parse_args()
 
 if FLAGS.dataset == 'dibco':
@@ -102,6 +105,8 @@ def main(unused_argv):
 
   for use_crf in range(2 if FLAGS.crf_training else 1):
     decay_steps = int(batches_per_epoch * _NUM_EPOCHS_PER_DECAY)
+    if FLAGS.only_crf:
+      use_crf = True
     if not use_crf:
       if FLAGS.crf_training:
         # We now pretrain the model without the crf

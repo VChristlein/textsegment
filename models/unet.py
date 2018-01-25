@@ -213,7 +213,7 @@ def unet_model_fn_gen(unet_depth,
     tf.identity(cross_entropy, name='cross_entropy')
     tf.summary.scalar('cross_entropy', cross_entropy)
 
-    crf_log_tensor = tf.convert_to_tensor(crf_post_processing)
+    crf_log_tensor = tf.convert_to_tensor(crf_post_processing, dtype=tf.uint8)
     tf.summary.scalar('CRF', crf_log_tensor)
     tf.summary.scalar('batch_size', tf.shape(logits)[0])
 
