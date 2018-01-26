@@ -29,11 +29,12 @@ def pseudo_f1_score(labels, predictions, metrics_collections=None, name=None):
     tf.summary.scalar('fp_1', fp[1])
     tf.summary.scalar('fn_1', fn[1])
 
+    if labels.shape.ndims == 4:
+      labels = array_ops.squeeze(labels, 3)
     labels_f = math_ops.cast(labels, dtypes.float32)
 
     # Precision
-    labels_uint = array_ops.squeeze(math_ops.cast(labels, dtypes.uint8),
-                                    axis=-1)
+    labels_uint = math_ops.cast(labels, dtypes.uint8)
     dist_p = script_ops.py_func(cv_distanceTransform, [labels_uint],
                                 dtypes.float32, name='cv_dist_w')
     dist_p.set_shape(labels_uint.shape)
