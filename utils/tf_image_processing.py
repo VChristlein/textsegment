@@ -158,9 +158,9 @@ def preprocess(image, ground_truth, out_size, mean, is_training):
     image = tf.cast(image, dtype=tf.float32)
     image = tf.image.random_brightness(image, max_delta=1.2)
     image = tf.image.random_contrast(image, lower=0.8, upper=1.2)
-
   else:
     image = tf.image.resize_image_with_crop_or_pad(image, out_height, out_width)
+    image = tf.cast(image, dtype=tf.float32)
     if ground_truth is not None:
       ground_truth = tf.image.resize_image_with_crop_or_pad(
         ground_truth, out_height, out_width)
