@@ -140,8 +140,6 @@ def preprocess(image, ground_truth, out_size, mean, is_training):
 
   out_height, out_width = out_size
 
-  image = tf.cast(image, dtype=tf.float32)
-
   if is_training:
     # Combine images so that we can randomly crop only one matrix for both
     # Image and ground truth label
@@ -157,6 +155,7 @@ def preprocess(image, ground_truth, out_size, mean, is_training):
 
     # NOTE: since per_image_standardization zeros the mean and makes
     # the stddev unit, this likely has no effect see tensorflow#1458.
+    image = tf.cast(image, dtype=tf.float32)
     image = tf.image.random_brightness(image, max_delta=1.2)
     image = tf.image.random_contrast(image, lower=0.8, upper=1.2)
 
