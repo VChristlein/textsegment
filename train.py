@@ -156,7 +156,7 @@ def main(unused_argv):
         'learning_rate': 'learning_rate',
         'cross_entropy': 'cross_entropy',
         'train_accuracy': 'train_accuracy',
-        'train_f1_score': 'train_f1_score',
+        # 'train_f1_score': 'train_f1_score',
         'train_pf1_score': 'train_pf1_score',
       }
 

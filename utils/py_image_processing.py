@@ -67,5 +67,8 @@ def save_img(image, path):
 
 
 def cv_distanceTransform(gt_label):
-  print('cv_distanceTransform')
-  return cv2.distanceTransform(gt_label, cv2.DIST_L2, 3)
+  # Iterate over all batches
+  ret = np.empty_like(gt_label, dtype=np.float32)
+  for i in range(gt_label.shape[0]):
+    ret[i, :, :] = cv2.distanceTransform(gt_label[i, :, :], cv2.DIST_L2, 3)
+  return ret
