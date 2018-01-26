@@ -46,6 +46,7 @@ def pseudo_f1_score(labels, predictions, metrics_collections=None, name=None):
                            y=1 + 1 / dist_p))
     tf.summary.histogram("pw", pw)
 
+    pw = array_ops.reshape(pw, labels_f.shape)
     TP_p = math_ops.reduce_sum(predictions * labels_f * pw)
     TP_FN_p = math_ops.reduce_sum(predictions * pw)
     precision = array_ops.where(
@@ -68,6 +69,7 @@ def pseudo_f1_score(labels, predictions, metrics_collections=None, name=None):
                          y=array_ops.zeros_like(labels_uint_r, dtypes.float32))
     tf.summary.histogram("rw", rw)
 
+    rw = array_ops.reshape(rw, labels_f.shape)
     TP_r = math_ops.reduce_sum(labels_f * predictions * rw)
     TP_FN_r = math_ops.reduce_sum(labels_f * rw)
     recall = array_ops.where(
