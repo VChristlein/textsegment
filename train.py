@@ -103,6 +103,9 @@ def main(unused_argv):
   # Set up a RunConfig to only save checkpoints once per training cycle.
   run_config = tf.estimator.RunConfig().replace(save_checkpoints_secs=1000)
 
+  print('********************************************')
+  print('Start training with dataset {}.'.format(FLAGS.dataset))
+  print('********************************************')
   for use_crf in range(2 if FLAGS.crf_training else 1):
     decay_steps = int(batches_per_epoch * _NUM_EPOCHS_PER_DECAY)
     if FLAGS.only_crf:
