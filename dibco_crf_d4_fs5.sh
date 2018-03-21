@@ -31,6 +31,7 @@ fi
 python3 /cluster/ko01jaxu/ma-proj/train.py \
     --unet_depth=4 \
     --filter_size=5 \
+    --img_patch_size=250 \
     --model_dir=$MODEL_DIR \
     --data_dir=$DATA_DIR \
     --dataset=$DATA_SET \

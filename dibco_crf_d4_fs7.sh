@@ -21,8 +21,8 @@ pip3 install --upgrade tensorflow-gpu==$TF_VERSION Pillow
 cd /cluster/ko01jaxu/ma-proj
 ./utils/crfasrnn/compile_high_dim_filter.sh
 
-DATA_SET=hisdb
-MODEL_DIR=/cluster/ko01jaxu/models/$DATA_SET/crf_d4_fs5
+DATA_SET=dibco
+MODEL_DIR=/cluster/ko01jaxu/models/$DATA_SET/crf_d4_fs7
 DATA_DIR=/tmp/ko01jaxu/$DATA_SET
 if [ -d "$DATA_DIR" ]; then
   rm -rf $DATA_DIR
@@ -30,15 +30,14 @@ fi
 
 python3 /cluster/ko01jaxu/ma-proj/train.py \
     --unet_depth=4 \
-    --filter_size=5 \
-    --img_patch_size=250 \
+    --filter_size=7 \
     --model_dir=$MODEL_DIR \
     --data_dir=$DATA_DIR \
-    --batch_size=8 \
-    --epochs_per_eval=500 \
-    --train_epochs=1000 \
-    --buffer_size=50 \
     --dataset=$DATA_SET \
+    --batch_size=4 \
+    --epochs_per_eval=200 \
+    --train_epochs=5000 \
+    --buffer_size=200 \
     --crf_training=True
 
 deactivate
