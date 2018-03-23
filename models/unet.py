@@ -37,73 +37,75 @@ def unet_block(inputs, filters, filter_size, keep_prob, process_fn, is_training,
 
 def unet(inputs, blocks, num_classes, filter_size, is_training,
          data_format=None):
-  if data_format == 'channels_first':
-    # Convert from channels_last (NHWC) to channels_first (NCHW). This
-    # provides a large performance boost on GPU.
-    net = tf.transpose(inputs, [0, 3, 1, 2])
-  else:
-    net = inputs
+  with tf.variable_scope('unet'):
+    if data_format == 'channels_first':
+      # Convert from channels_last (NHWC) to channels_first (NCHW). This
+      # provides a large performance boost on GPU.
+      net = tf.transpose(inputs, [0, 3, 1, 2])
+    else:
+      net = inputs
 
-  def pool(inputs):
-    return layers.max_pooling2d(
-      inputs=inputs, pool_size=2, strides=2, padding='SAME',
-      data_format=data_format)
+    def pool(inputs):
+      return layers.max_pooling2d(
+        inputs=inputs, pool_size=2, strides=2, padding='SAME',
+        data_format=data_format)
 
-  def conv_t(inputs, filters, out_h, out_w=None):
-    if out_w == None:
-      out_w = out_h
-    return layers.conv2d_t(
-      inputs=inputs, filters=filters, out_h=out_h, out_w=out_w, kernel_size=2,
-      strides=2, data_format=data_format)
+    def conv_t(inputs, filters, out_h, out_w=None):
+      if out_w == None:
+        out_w = out_h
+      return layers.conv2d_t(
+        inputs=inputs, filters=filters, out_h=out_h, out_w=out_w, kernel_size=2,
+        strides=2, data_format=data_format)
 
-  def conv_relu_out(inputs, filters):
-    inputs = layers.conv2d_fixed_padding(
-      inputs=inputs, filters=filters, kernel_size=1, strides=1,
-      use_bias=False, data_format=data_format)
-    return layers.batch_norm_relu(
-      inputs=inputs, is_training=is_training, data_format=data_format)
+    def conv_relu_out(inputs, filters):
+      inputs = layers.conv2d_fixed_padding(
+        inputs=inputs, filters=filters, kernel_size=1, strides=1,
+        use_bias=False, data_format=data_format)
+      return layers.batch_norm_relu(
+        inputs=inputs, is_training=is_training, data_format=data_format)
 
-  shortcuts = OrderedDict()
+    shortcuts = OrderedDict()
 
-  # down sampling
-  for i in range(blocks["size"]):
-    shortcuts[i], net = unet_block(
+    with tf.variable_scope('transfer'):
+      # down sampling
+      for i in range(blocks["size"]):
+        shortcuts[i], net = unet_block(
+          inputs=net,
+          filters=blocks["filters"][i],
+          filter_size=filter_size,
+          keep_prob=blocks["keep_prob"],
+          process_fn=pool,
+          is_training=is_training,
+          data_format=data_format)
+
+    # up sampling
+    for i in reversed(range(blocks["size"])):
+      _, net = unet_block(
+        inputs=net,
+        filters=blocks["filters"][i] * 2,
+        filter_size=filter_size,
+        keep_prob=blocks["keep_prob"],
+        process_fn=lambda inputs: conv_t(inputs, blocks["filters"][i],
+                                         shortcuts[i].shape[2]),
+        is_training=is_training,
+        data_format=data_format)
+      if data_format == 'channels_first':
+        concat_axis = 1
+      else:
+        concat_axis = 3
+        net = tf.concat([shortcuts[i], net], axis=concat_axis)
+
+    # output block
+    _, net = unet_block(
       inputs=net,
       filters=blocks["filters"][i],
       filter_size=filter_size,
       keep_prob=blocks["keep_prob"],
-      process_fn=pool,
+      process_fn=lambda inputs: conv_relu_out(inputs, num_classes),
       is_training=is_training,
       data_format=data_format)
 
-  # up sampling
-  for i in reversed(range(blocks["size"])):
-    _, net = unet_block(
-      inputs=net,
-      filters=blocks["filters"][i] * 2,
-      filter_size=filter_size,
-      keep_prob=blocks["keep_prob"],
-      process_fn=lambda inputs: conv_t(inputs, blocks["filters"][i],
-                                       shortcuts[i].shape[2]),
-      is_training=is_training,
-      data_format=data_format)
-    if data_format == 'channels_first':
-      concat_axis = 1
-    else:
-      concat_axis = 3
-      net = tf.concat([shortcuts[i], net], axis=concat_axis)
-
-  # output block
-  _, net = unet_block(
-    inputs=net,
-    filters=blocks["filters"][i],
-    filter_size=filter_size,
-    keep_prob=blocks["keep_prob"],
-    process_fn=lambda inputs: conv_relu_out(inputs, num_classes),
-    is_training=is_training,
-    data_format=data_format)
-
-  return net
+    return net
 
 
 def unet_model_fn_gen(unet_depth,
@@ -168,7 +170,7 @@ def unet_model_fn_gen(unet_depth,
       logits_ = tf.transpose(logits_, [0, 2, 3, 1])
     res_before_crf = get_gt_fn(tf.argmax(logits_, axis=3))
     tf.summary.image(mode_str + '/prediction_before_crf',
-      res_before_crf, max_outputs=6)
+                     res_before_crf, max_outputs=6)
 
     logits = layers.crf(
       inputs=[logits, tf.transpose(inputs, [0, 3, 1, 2])],

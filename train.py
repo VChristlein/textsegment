@@ -60,6 +60,10 @@ parser.add_argument('--crf_training', type=bool, default=True,
 parser.add_argument('--only_crf', type=bool, default=False,
                     help='Start imidiatly with crf training')
 
+parser.add_argument('--transfer', type=bool, default=False,
+                    help='Use with pre-trained checkpoint file;' + \
+                         'Only the downscale conv layers will get restored.')
+
 FLAGS = parser.parse_args()
 
 if FLAGS.dataset == 'dibco':
@@ -149,10 +153,19 @@ def main(unused_argv):
       crf_post_processing=use_crf,
       save_dir=FLAGS.model_dir)
 
+    warmStart = None
+    if FLAGS.transfer:
+      warmStart = tf.estimator.WarmStartSettings(
+        ckpt_to_initialize_from=FLAGS.model_dir,
+        vars_to_warm_start=".*transfer*"
+      )
+
     classifier = tf.estimator.Estimator(
       model_fn=model_fn,
       model_dir=FLAGS.model_dir,
-      config=run_config)
+      config=run_config,
+      warm_start_from=warmStart
+    )
 
     for i in range(FLAGS.train_epochs // FLAGS.epochs_per_eval):
       tensors_to_log = {
@@ -160,7 +173,7 @@ def main(unused_argv):
         'cross_entropy': 'cross_entropy',
         'train_accuracy': 'train_accuracy',
         # 'train_f1_score': 'train_f1_score',
-        'train_pf1_score': 'train_pf1_score',
+        # 'train_pf1_score': 'train_pf1_score',
       }
 
       logging_hook = tf.train.LoggingTensorHook(
