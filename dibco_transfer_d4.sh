@@ -7,10 +7,10 @@
 #SBATCH -o /cluster/%u/%j.out 
 #SBATCH -e /cluster/%u/%j.out
 
-TF_VERSION=1.4.0
+TF_VERSION=1.6.0
 
-export CUDA_HOME=/cluster/ko01jaxu/cuda-8.0
-export LD_LIBRARY_PATH=/cluster/ko01jaxu/cuda-8.0/lib64
+export CUDA_HOME=/usr/local/cuda-9.0/
+export LD_LIBRARY_PATH=/usr/local/cuda-9.0/lib64
 
 mkdir -p /scratch/ko01jaxu/env/
 virtualenv --system-site-packages -p python3 /scratch/ko01jaxu/env/tf-$TF_VERSION
@@ -60,7 +60,9 @@ python3 /cluster/ko01jaxu/ma-proj/train.py \
     --epochs_per_eval=10 \
     --train_epochs=5000 \
     --buffer_size=50 \
-    --crf_training=True
+    --crf_training=True \
+    --only_crf=True \
+    --transfer=True
 
 deactivate
 
