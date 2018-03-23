@@ -20,7 +20,9 @@ g++ -std=c++11 \
   -I$TF_INC/external/nsync/public \
   -L$TF_LIB \
   -ltensorflow_framework \
-  -O2 \
+  -O3 \
+  -march=native \
+  -flto \
   -D_GLIBCXX_USE_CXX11_ABI=0
 
 mv high_dim_filter.so ../../
