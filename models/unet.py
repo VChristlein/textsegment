@@ -252,9 +252,9 @@ def unet_model_fn_gen(unet_depth,
       train_op = None
 
     accuracy = tf.metrics.accuracy(labels, predictions['classes'])
-    #fmeasure = m.f1_score(labels, predictions['probabilities'][:, :, :, 1])
-    pfmeasure = m.pseudo_f1_score(labels,
-                                  predictions['probabilities'][:, :, :, 1])
+    # fmeasure = m.f1_score(labels, predictions['probabilities'][:, :, :, 1])
+    # pfmeasure = m.pseudo_f1_score(labels,
+    #                               predictions['probabilities'][:, :, :, 1])
     metrics = {'accuracy': accuracy,
                # 'f1_score': fmeasure,
                # 'pf1_score': pfmeasure
@@ -274,8 +274,8 @@ def unet_model_fn_gen(unet_depth,
     tf.summary.scalar('train_accuracy', accuracy[1])
     # tf.identity(accuracy[1], name='train_f1_score')
     # tf.summary.scalar('train_f1_score', fmeasure[1])
-    tf.identity(pfmeasure, name='train_pf1_score')
-    tf.summary.scalar('train_pf1_score', pfmeasure)
+    # tf.identity(pfmeasure, name='train_pf1_score')
+    # tf.summary.scalar('train_pf1_score', pfmeasure)
 
     if is_training:
       # tf.Estimator handles summaries during training
