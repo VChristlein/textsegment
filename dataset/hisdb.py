@@ -37,8 +37,6 @@ def prepare_hisdb(data_dir=DEFAULT_DATA_DIR,
                   out_dir=None,
                   force=False):
   """ Downloads and extracts dibco dataset and its annotation data. """
-  meta_data = get_hisdb_meta_data()
-
   if not os.path.exists(data_dir):
     os.makedirs(data_dir)
   if out_dir is None:
@@ -71,14 +69,14 @@ def prepare_hisdb(data_dir=DEFAULT_DATA_DIR,
     val_writer.close()
     print()
 
-  return meta_data
+  return get_hisdb_meta_data()
 
 
 def get_hisdb_palette():
   return tf.constant(
     [
       [255],  # Background
-      [0],  # Writing
+      [0],    # Writing
     ],
     dtype=tf.int32)
 
@@ -88,7 +86,6 @@ def hisdb_input_fn(is_training,
                    batch_size=1,
                    img_size=250,
                    img_scale_factor=1,
-                   label_size=None,
                    buffer_size=200,
                    data_dir=DEFAULT_DATA_DIR):
   if isinstance(img_size, tuple):
@@ -99,8 +96,6 @@ def hisdb_input_fn(is_training,
   channels_img, channels_gt = (3, 1)
   process_heigh = int(out_height / img_scale_factor)
   process_width = int(out_width / img_scale_factor)
-  if label_size is None:
-    label_size = (process_heigh, process_width)
 
   record = os.path.join(
     data_dir, 'train.record' if is_training else 'val.record')
