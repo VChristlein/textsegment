@@ -153,9 +153,9 @@ def main(unused_argv):
       crf_post_processing=use_crf,
       save_dir=FLAGS.model_dir)
 
-    warmStart = None
+    warm_start = None
     if FLAGS.transfer:
-      warmStart = tf.estimator.WarmStartSettings(
+      warm_start = tf.estimator.WarmStartSettings(
         ckpt_to_initialize_from=FLAGS.model_dir,
         vars_to_warm_start=".*transfer*"
       )
@@ -164,7 +164,7 @@ def main(unused_argv):
       model_fn=model_fn,
       model_dir=FLAGS.model_dir,
       config=run_config,
-      warm_start_from=warmStart
+      warm_start_from=warm_start
     )
 
     for i in range(FLAGS.train_epochs // FLAGS.epochs_per_eval):
@@ -181,7 +181,8 @@ def main(unused_argv):
 
       classifier.train(
         input_fn=input_train,
-        hooks=[logging_hook])
+        hooks=[logging_hook],
+        steps=FLAGS.epochs_per_eval * meta_data['num_img_train'])
 
       # Evaluate the model and print results
       print('Evaluating model for epoch {} ...' \
