@@ -17,8 +17,10 @@ from utils.tf_image_processing import preprocess, scale, inv_preprocess, \
 
 def get_hisdb_meta_data():
   return {
-    'url': 'https://www.dropbox.com/s/tc140kgb2k57jen/hisdb.zip?dl=1',
-    'img_mean': [159.09439087, 150.34194946, 131.70729065],
+    # 'url': 'https://www.dropbox.com/s/tc140kgb2k57jen/hisdb.zip?dl=1',  # split=0.2
+    'url': 'https://www.dropbox.com/s/jc3xvs3nfd1e69h/hisdb.zip?dl=1',  # split=0.1
+    # 'url': 'https://www.dropbox.com/s/zlqr7tc1blfik64/hisdb.zip?dl=1',  # split=0.05
+    'img_mean': [158.46368408, 149.52677917, 130.72163391],
     'num_classes': 2,
     'num_img_train': 120,
     'num_img_val': 18,

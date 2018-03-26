@@ -13,7 +13,9 @@ from utils.tf_image_processing import preprocess, scale, inv_preprocess, \
 
 def get_dibco_meta_data():
   return {
-    'url': 'https://www.dropbox.com/s/62pps8pi5jfqzxg/dibco.zip?dl=1',
+    # 'url': 'https://www.dropbox.com/s/62pps8pi5jfqzxg/dibco.zip?dl=1',  # split=0.2
+    'url': 'https://www.dropbox.com/s/m5rfjfocjgrhicn/dibco.zip?dl=1',  # split=0.1
+    # 'url': 'https://www.dropbox.com/s/4z2m9ndscs37i03/dibco.zip?dl=1',  # split=0.05
     'img_mean': [196.48484802, 188.59724426, 170.53767395],
     'num_classes': 2,
     'num_img_train': 68,
