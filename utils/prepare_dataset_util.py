@@ -9,8 +9,10 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('--directory', type=str)
 
-parser.add_argument('--split', type=bool, default=True,
-                    help='Do train/test split')
+parser.add_argument('--split', type=float, default=0.2,
+                    help='Do train/test split.')
+parser.add_argument('--seed', type=int, default=42,
+                    help='Random seed for train test split.')
 
 if __name__ == '__main__':
   FLAGS = parser.parse_args()
@@ -32,20 +34,22 @@ if __name__ == '__main__':
       mean = np.vstack([mean, mean_])
   mean = mean[1:]
 
-  if FLAGS.split:
-    train, test = train_test_split(filenames, test_size=0.2, random_state=42)
+  if FLAGS.split > 0:
+    print('Splitting into train and test set ({}%).'.format(FLAGS.split))
+    train, test = train_test_split(filenames, test_size=FLAGS.split,
+                                   random_state=FLAGS.seed)
   else:
     train, test = filenames, None
 
   train = np.sort(train)
   test = np.sort(test)
 
-  with open('val.txt', 'w') as train_file:
+  with open('train.txt', 'w') as train_file:
     for file_name in train:
       train_file.write(os.path.join('images', file_name) + ' '
                        + os.path.join('gt', file_name) + '\n')
 
-  if not FLAGS.split:
+  if FLAGS.split > 0:
     with open('test.txt', 'w') as test_file:
       for file_name in test:
         test_file.write(os.path.join('images', file_name) + ' '
