@@ -1,4 +1,5 @@
 import os
+import glob
 import argparse
 
 import numpy as np
@@ -8,6 +9,7 @@ from PIL import Image, ImageStat
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--directory', type=str)
+parser.add_argument('--gt-directory', type=str, default=None)
 
 parser.add_argument('--split', type=float, default=0.2,
                     help='Do train/test split.')
@@ -18,12 +20,20 @@ if __name__ == '__main__':
   FLAGS = parser.parse_args()
 
   directory = FLAGS.directory.replace('\'', '')
+  if FLAGS.gt_directory is not None:
+    gt_directory = FLAGS.gt_directory.replace('\'', '')
+  else:
+    gt_directory = directory
   height = width = list()
   mean = np.empty(shape=(3,), dtype=np.float32)
   filenames = []
   for filename in os.listdir(directory):
     if filename.endswith('.png') or filename.endswith('.jpg'):
-      filenames.append(filename)
+      gt_filename = os.path.splitext(filename)[0]
+      gt_filename = list(
+        glob.glob(os.path.join(gt_directory, gt_filename + '*')))[0]
+      gt_filename = os.path.basename(gt_filename)
+      filenames.append((filename, gt_filename))
       img = Image.open(os.path.join(directory, filename))
       height_, width_ = img.size
       height.append(height_)
@@ -41,19 +51,19 @@ if __name__ == '__main__':
   else:
     train, test = filenames, None
 
-  train = np.sort(train)
-  test = np.sort(test)
+  train = np.sort(train, axis=0)
+  test = np.sort(test, axis=0)
 
   with open('train.txt', 'w') as train_file:
     for file_name in train:
-      train_file.write(os.path.join('images', file_name) + ' '
-                       + os.path.join('gt', file_name) + '\n')
+      train_file.write(os.path.join('images', file_name[0]) + ' '
+                       + os.path.join('gt', file_name[1]) + '\n')
 
   if FLAGS.split > 0:
     with open('test.txt', 'w') as test_file:
       for file_name in test:
-        test_file.write(os.path.join('images', file_name) + ' '
-                        + os.path.join('gt', file_name) + '\n')
+        test_file.write(os.path.join('images', file_name[0]) + ' '
+                        + os.path.join('gt', file_name[1]) + '\n')
 
   print('Num images:', np.shape(mean)[0])
   print('Mean RGB:', np.mean(mean, axis=0))
