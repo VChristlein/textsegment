@@ -14,25 +14,32 @@ from utils.data import maybe_download, dict_to_example, get_label_map_dict
 from utils.tf_image_processing import preprocess, scale, inv_preprocess, \
   random_rotate, get_gt_img, map_ground_truth
 
+DEFAULT_DATA_DIR = '/tmp/hisdb'
+DATA_EXTRACTED_DIR = 'hisdb'
 
-def get_hisdb_meta_data():
+
+def get_hisdb_meta_data(data_dir=DEFAULT_DATA_DIR):
+  n_train = 1
+  n_test = 1
+  if os.path.exists(os.path.join(data_dir, 'num_train')):
+    with open(os.path.join(data_dir, 'num_train')) as f:
+      n_train = int(f.read())
+  if os.path.exists(os.path.join(data_dir, 'num_test')):
+    with open(os.path.join(data_dir, 'num_test')) as f:
+      n_test = int(f.read())
   return {
     # 'url': 'https://www.dropbox.com/s/tc140kgb2k57jen/hisdb.zip?dl=1',  # split=0.2
-    'url': 'https://www.dropbox.com/s/jc3xvs3nfd1e69h/hisdb.zip?dl=1',  # split=0.1
-    # 'url': 'https://www.dropbox.com/s/zlqr7tc1blfik64/hisdb.zip?dl=1',  # split=0.05
+    # 'url': 'https://www.dropbox.com/s/jc3xvs3nfd1e69h/hisdb.zip?dl=1',  # split=0.1
+    'url': 'https://www.dropbox.com/s/zlqr7tc1blfik64/hisdb.zip?dl=1',  # split=0.05
     'img_mean': [158.46368408, 149.52677917, 130.72163391],
     'num_classes': 2,
-    'num_img_train': 120,
-    'num_img_val': 18,
+    'num_img_train': n_train,
+    'num_img_val': n_test,
     'img_channels': 3,
     'gt_channels': 1,
     'default_img_height': 250,
     'default_img_width': 250,
   }
-
-
-DEFAULT_DATA_DIR = '/tmp/hisdb'
-DATA_EXTRACTED_DIR = 'hisdb'
 
 
 def prepare_hisdb(data_dir=DEFAULT_DATA_DIR,
@@ -47,31 +54,41 @@ def prepare_hisdb(data_dir=DEFAULT_DATA_DIR,
     os.makedirs(out_dir)
 
   train_record = 'train.record'
-  val_record = 'val.record'
+  test_record = 'test.record'
+  num_train = 'num_train'
+  num_test = 'num_test'
 
   if not (os.path.exists(os.path.join(data_dir, train_record)) and
-          os.path.exists(os.path.join(data_dir, val_record))) or force:
-    maybe_download(get_hisdb_meta_data()['url'], data_dir, force=force)
+          os.path.exists(os.path.join(data_dir, test_record)) and
+          os.path.exists(os.path.join(data_dir, num_train)) and
+          os.path.exists(os.path.join(data_dir, num_test))) or force:
+    maybe_download(get_hisdb_meta_data(data_dir)['url'], data_dir, force=force)
 
-    data_dir = os.path.join(data_dir, DATA_EXTRACTED_DIR)
+    extracted_dir = os.path.join(data_dir, DATA_EXTRACTED_DIR)
 
+    with open(os.path.join(extracted_dir, 'train.txt')) as i_f:
+      with open(os.path.join(data_dir, num_train), mode='w') as o_f:
+        o_f.write(str(len(i_f.readlines())))
     train_writer = tf.python_io.TFRecordWriter(
       os.path.join(out_dir, train_record))
     for data in get_label_map_dict(
-        data_dir, os.path.join(data_dir, 'train.txt')):
+        extracted_dir, os.path.join(extracted_dir, 'train.txt')):
       example = dict_to_example(data, gt_fn=parse_xml)
       train_writer.write(example.SerializeToString())
     train_writer.close()
 
-    val_writer = tf.python_io.TFRecordWriter(os.path.join(out_dir, val_record))
+    with open(os.path.join(extracted_dir, 'test.txt')) as i_f:
+      with open(os.path.join(data_dir, num_test), mode='w') as o_f:
+        o_f.write(str(len(i_f.readlines())))
+    val_writer = tf.python_io.TFRecordWriter(os.path.join(out_dir, test_record))
     for data in get_label_map_dict(
-        data_dir, os.path.join(data_dir, 'test.txt')):
+        extracted_dir, os.path.join(extracted_dir, 'test.txt')):
       example = dict_to_example(data, gt_fn=parse_xml)
       val_writer.write(example.SerializeToString())
     val_writer.close()
     print()
 
-  return get_hisdb_meta_data()
+  return get_hisdb_meta_data(data_dir)
 
 
 def get_hisdb_palette():
@@ -100,13 +117,13 @@ def hisdb_input_fn(is_training,
   process_width = int(out_width / img_scale_factor)
 
   record = os.path.join(
-    data_dir, 'train.record' if is_training else 'val.record')
+    data_dir, 'train.record' if is_training else 'test.record')
   if not os.path.exists(record):
     raise ValueError('TFRecord not found: {}.'.format(record) + \
                      'Did you download it `using prepare_hisdb()`?')
   data_set = tf.data.TFRecordDataset(record)
 
-  mean = get_hisdb_meta_data()['img_mean']
+  mean = get_hisdb_meta_data(data_dir)['img_mean']
 
   def dataset_parser(record):
     keys_to_features = {
