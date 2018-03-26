@@ -58,7 +58,7 @@ parser.add_argument('--crf_training', type=bool, default=True,
                     help='After normal training train a downstream crf')
 
 parser.add_argument('--only_crf', type=bool, default=False,
-                    help='Start imidiatly with crf training')
+                    help='Start immediately with crf training')
 
 parser.add_argument('--transfer', type=bool, default=False,
                     help='Use with pre-trained checkpoint file;' + \
