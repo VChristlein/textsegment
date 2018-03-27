@@ -27,7 +27,7 @@ def get_dibco_meta_data(data_dir=DEFAULT_DATA_DIR):
     # 'url': 'https://www.dropbox.com/s/62pps8pi5jfqzxg/dibco.zip?dl=1',  # split=0.2
     'url': 'https://www.dropbox.com/s/m5rfjfocjgrhicn/dibco.zip?dl=1',  # split=0.1
     # 'url': 'https://www.dropbox.com/s/4z2m9ndscs37i03/dibco.zip?dl=1',  # split=0.05
-    'img_mean': [196.48484802, 188.59724426, 170.53767395],
+    'img_mean': [196.5005, 187.84402, 168.66867],
     'num_classes': 2,
     'num_img_train': n_train,
     'num_img_test': n_test,
