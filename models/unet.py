@@ -252,11 +252,14 @@ def unet_model_fn_gen(unet_depth,
       train_op = None
 
     accuracy = tf.metrics.accuracy(labels, predictions['classes'])
-    # fmeasure = m.f1_score(labels, predictions['probabilities'][:, :, :, 1])
+    f1_score = m.f1_score(labels, predictions['classes'])
+    psnr = m.psnr(labels, predictions['classes'])
+    #drd = m.drd(labels, predictions['classes'])
     # pfmeasure = m.pseudo_f1_score(labels,
     #                               predictions['probabilities'][:, :, :, 1])
     metrics = {'accuracy': accuracy,
-               # 'f1_score': fmeasure,
+               'f1_score': f1_score,
+               'psnr': psnr,
                # 'pf1_score': pfmeasure
                }
 
@@ -270,8 +273,12 @@ def unet_model_fn_gen(unet_depth,
                        distribution, max_outputs=6)
 
     # Create a tensor named train_accuracy for logging purposes
-    tf.identity(accuracy[1], name='train_accuracy')
-    tf.summary.scalar('train_accuracy', accuracy[1])
+    tf.identity(accuracy[1], name='accuracy')
+    tf.summary.scalar('accuracy', accuracy[1])
+    tf.identity(f1_score[1], name='f1_score')
+    tf.summary.scalar('f1_score', f1_score[1])
+    tf.identity(psnr[1], name='psnr')
+    tf.summary.scalar('PSNR', psnr[1])
     # tf.identity(accuracy[1], name='train_f1_score')
     # tf.summary.scalar('train_f1_score', fmeasure[1])
     # tf.identity(pfmeasure, name='train_pf1_score')

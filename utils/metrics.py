@@ -5,6 +5,7 @@ from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import script_ops
 from tensorflow.python.ops import variable_scope
 from tensorflow.python.ops import metrics
+import tensorflow as tf
 
 from utils.py_image_processing import cv_distanceTransform
 
@@ -37,6 +38,31 @@ def pseudo_f1_score(labels, predictions, metrics_collections=None, name=None):
     labels_uint = math_ops.cast(labels, dtypes.uint8)
     dist_p = script_ops.py_func(cv_distanceTransform, [labels_uint],
                                 dtypes.float32, name='cv_dist_w')
+def f1_score(labels, predictions, metrics_collections=None, name=None):
+  with tf.variable_scope(name, 'f1_score', (labels, predictions)):
+    precision, precision_update = tf.metrics.precision(labels, predictions)
+    tf.summary.scalar('precision', precision_update)
+    recall, recall_update = tf.metrics.recall(labels, predictions)
+    tf.summary.scalar('recall', recall_update)
+    def compute_f1_score(rc, pr, name):
+      return tf.div(2 * rc * pr, rc + pr, name)
+    f1 = compute_f1_score(precision, recall, 'value')
+    f1_update = compute_f1_score(precision_update, recall_update, 'update_op')
+    if metrics_collections:
+      tf.add_to_collections(metrics_collections, f1)
+    return f1, f1_update
+
+def psnr(labels, predictions, metrics_collections=None, name=None):
+  with tf.variable_scope(name, 'psnr', (labels, predictions)):
+    mse, mse_update = tf.metrics.mean_squared_error(labels, predictions)
+    def compute_psnr(mse, c, name):
+      return tf.multiply(10.0, tf.log(c / mse) / tf.log(10.0), name)
+    psnr = compute_psnr(mse, 1.0, 'value')
+    psnr_update = compute_psnr(mse_update, 1.0, 'update_op')
+    if metrics_collections:
+      tf.add_to_collections(metrics_collections, psnr)
+    return psnr, psnr_update
+
     dist_p.set_shape(labels_uint.shape)
     tf.summary.histogram("dist_p", dist_p)
     pw = array_ops.where(math_ops.greater(dist_p, 8.),
