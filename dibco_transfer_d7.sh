@@ -23,7 +23,7 @@ cd /cluster/ko01jaxu/ma-proj
 ./utils/crfasrnn/compile_high_dim_filter.sh
 
 DATA_SET=dibco
-MODEL_DIR=/cluster/ko01jaxu/models/$DATA_SET/crf_transfer_d5_fs5
+MODEL_DIR=/cluster/ko01jaxu/models/$DATA_SET/crf_transfer_d5_fs7
 
 # Pretrain with hisdb
 DATA_SET=hisdb
@@ -33,7 +33,7 @@ if [ -d "$DATA_DIR" ]; then
 fi
 python3 /cluster/ko01jaxu/ma-proj/train.py \
     --unet_depth=5 \
-    --filter_size=5 \
+    --filter_size=7 \
     --img_patch_size=250 \
     --model_dir=$MODEL_DIR \
     --data_dir=$DATA_DIR \
@@ -51,7 +51,7 @@ if [ -d "$DATA_DIR" ]; then
 fi
 python3 /cluster/ko01jaxu/ma-proj/train.py \
     --unet_depth=5 \
-    --filter_size=5 \
+    --filter_size=7 \
     --img_patch_size=250 \
     --model_dir=$MODEL_DIR \
     --data_dir=$DATA_DIR \
