@@ -107,9 +107,9 @@ def main(unused_argv):
   # Set up a RunConfig to only save checkpoints once per training cycle.
   run_config = tf.estimator.RunConfig().replace(save_checkpoints_secs=1000)
 
-  print('********************************************')
-  print('Start training with dataset {}.'.format(FLAGS.dataset))
-  print('********************************************')
+  tf.logging.info('**********************************')
+  tf.logging.info('Start training with dataset {}.'.format(FLAGS.dataset))
+  tf.logging.info('**********************************')
   for use_crf in range(2 if FLAGS.crf_training else 1):
     decay_steps = int(batches_per_epoch * _NUM_EPOCHS_PER_DECAY)
     if FLAGS.only_crf:
@@ -121,7 +121,7 @@ def main(unused_argv):
         decay_steps = int(batches_per_epoch * _NUM_EPOCHS_PER_DECAY 
                             * FLAGS.train_epochs)
     else:
-      print('Now training with a downstream CRF!')
+      tf.logging.info('Now training with a downstream CRF!')
       # The implementation only supports a batch size of 1
       FLAGS.batch_size = 1
 
@@ -187,11 +187,11 @@ def main(unused_argv):
         steps=FLAGS.epochs_per_eval * meta_data['num_img_train'])
 
       # Evaluate the model and print results
-      print('Evaluating model for epoch {} ...' \
-            .format(i * FLAGS.epochs_per_eval))
+      tf.logging.info('Evaluating model for epoch {} ...' \
+          .format(i * FLAGS.epochs_per_eval))
       eval_results = classifier.evaluate(
         input_fn=input_val)
-      print(eval_results)
+      tf.logging.info(eval_results)
 
 
 if __name__ == '__main__':
