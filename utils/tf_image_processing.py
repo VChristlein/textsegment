@@ -32,7 +32,7 @@ def get_random_angels(shape, deviation=0.5, distribution='NORMAL', name=None):
     return angels
 
 
-def random_rotate(images, ground_truth=None, stddev=0.5, name=None):
+def random_rotate(images, ground_truth=None, stddev=0.25, name=None):
   """ Randomly rotate image(s).
 
   Use bilinear interpolation for `images` and nearest neighbor interpolation
@@ -148,7 +148,7 @@ def preprocess(image, ground_truth, out_size, mean, is_training):
     combined = tf.random_crop(
       combined, [out_height, out_width, depth_i + depth_ground_truth])
 
-    combined = tf.image.random_flip_left_right(combined)
+    # combined = tf.image.random_flip_left_right(combined)
 
     image = combined[:, :, :depth_i]
     ground_truth = combined[:, :, depth_i:]
