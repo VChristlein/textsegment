@@ -68,6 +68,7 @@ def main(unused_argv):
   else:
     height = img_meta['default_img_height']
     width = img_meta['default_img_width']
+    FLAGS.img_patch_size = height
   height = int(height * FLAGS.scale_factor)
   width = int(width * FLAGS.scale_factor)
   depth = img_meta['img_channels']
@@ -97,9 +98,10 @@ def main(unused_argv):
   # Predict output of given images
   for img_path in FLAGS.images:
     img_name = os.path.basename(img_path)
-    print('Evaluation image %s... ' % img_name, end='')
+    print('Evaluation image %s ... ' % img_name)
 
     img = open_img(img_path)
+    print('Generating sub windows ...')
     locations, ims = get_subwindows(img, FLAGS.img_patch_size)
     def patch_gen():
       for patch in ims:
@@ -107,8 +109,6 @@ def main(unused_argv):
 
     # Allocate some image buffer
     res_img = np.empty(img.shape[:-1], dtype=np.uint8)
-    from icecream import ic
-    ic(img.shape[:-1])
 
     def input_fn(gen, img_mean):
       p_size = (FLAGS.img_patch_size, FLAGS.img_patch_size)
@@ -127,6 +127,7 @@ def main(unused_argv):
       return iterator.get_next()
 
     results = []
+    print('Predicting ground truth ...')
     for p in classifier.predict(lambda: input_fn(patch_gen, img_mean)):
       results.append(p['result'])
     path = os.path.join(

@@ -46,9 +46,6 @@ def get_subwindows(im, tile_size, padding_size=32):
 
 
 def stitch_together(locations, subwindows, size, tile_size, padding_size=32):
-  from icecream import ic
-  ic(locations[0])
-  ic(subwindows[0].shape)
   output = np.zeros(size, dtype=np.float32)
   for location, subwindow in zip(locations, subwindows):
     subwindow = np.squeeze(subwindow)
