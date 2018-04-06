@@ -10,7 +10,7 @@ import numpy as np
 
 from models.unet import unet_model_fn_gen as model_fn_generator
 from utils.tf_image_processing import get_gt_img, preprocess
-from utils.py_image_processing import PatchGenerator, save_img
+from utils.py_image_processing import get_subwindows, stitch_together, open_img, save_img
 from dataset.dibco import get_dibco_meta_data, \
   get_dibco_palette
 from dataset.hisdb import get_hisdb_meta_data, \
@@ -71,6 +71,7 @@ def main(unused_argv):
   height = int(height * FLAGS.scale_factor)
   width = int(width * FLAGS.scale_factor)
   depth = img_meta['img_channels']
+  img_mean = img_meta['img_mean']
 
   print('Predicting {} given images.'.format(len(FLAGS.images)))
 
@@ -98,40 +99,40 @@ def main(unused_argv):
     img_name = os.path.basename(img_path)
     print('Evaluation image %s... ' % img_name, end='')
 
-    p_gen = PatchGenerator(img_path, (height, width), n_overlap=height / 2)
+    img = open_img(img_path)
+    locations, ims = get_subwindows(img, FLAGS.img_patch_size)
+    def patch_gen():
+      for patch in ims:
+        yield patch
 
     # Allocate some image buffer
-    res_img = np.empty(p_gen.get_img_shape()[:-1], dtype=np.uint8)
+    res_img = np.empty(img.shape[:-1], dtype=np.uint8)
+    from icecream import ic
+    ic(img.shape[:-1])
 
-    def input_fn(patch_gen, img_mean):
+    def input_fn(gen, img_mean):
+      p_size = (FLAGS.img_patch_size, FLAGS.img_patch_size)
       data_set = tf.data.Dataset.from_generator(
-        generator=patch_gen.get_patches_gen,
+        generator=gen,
         output_types=tf.float32,
-        output_shapes=tf.TensorShape(list(patch_gen.get_patch_size()) +
-                                     [patch_gen.get_img_shape()[-1]])
+        output_shapes=tf.TensorShape(list(p_size) + [img.shape[-1]])
       )
 
       data_set = data_set.map(
-        lambda patches: preprocess(
-          patches, None, patch_gen.get_patch_size(), img_mean, False)[0])
+        lambda patches: preprocess(patches, None, p_size, img_mean, False)[0])
 
       data_set.prefetch(5)
       data_set.batch(1)
       iterator = data_set.make_one_shot_iterator()
       return iterator.get_next()
 
-    predictions = classifier.predict(lambda: input_fn(p_gen, img_meta['img_mean']))
-    for i, pred in enumerate(predictions):
-      p_meta = p_gen.get_patch_meta(i)
-      distribution = np.asarray(
-        pred['probabilities'][:p_meta.height, :p_meta.width, 0])
-      distribution *= 255
-      res_img[p_meta.pos_h:p_meta.pos_h + p_meta.height,
-              p_meta.pos_w:p_meta.pos_w + p_meta.width] = distribution.astype(np.uint8)
-
-    path = os.path.join(FLAGS.out_dir,
-                        os.path.splitext(img_name)[0] + '_prediction' + '.png')
-    save_img(res_img, path)
+    results = []
+    for p in classifier.predict(lambda: input_fn(patch_gen, img_mean)):
+      results.append(p['result'])
+    path = os.path.join(
+        FLAGS.out_dir, os.path.splitext(img_name)[0] + '_prediction' + '.png')
+    save_img(stitch_together(locations, results, img.shape[:-1],
+                             FLAGS.img_patch_size), path)
     print('finished!')
 
 

@@ -1,68 +1,100 @@
-import collections
-
 import numpy as np
 from PIL import Image
 import cv2
 
-PatchMeta = collections.namedtuple('Patch', 'height, width, pos_h, pos_w')
+LEFT_EDGE = -2
+TOP_EDGE = -1
+MIDDLE = 0
+RIGHT_EDGE = 1
+BOTTOM_EDGE = 2
 
 
-class PatchGenerator():
-  def __init__(self, img_path, patch_size, n_overlap=0):
-    self.img = self._open_image(img_path)
-    self.i_h = self.img.shape[0]  # image height
-    self.i_w = self.img.shape[1]  # image width
-    self.p_h = patch_size[0]  # patch height
-    self.p_w = patch_size[1]  # patch width
-    self.n_c = self.img.shape[-1]  # number of image channels
-    self.n_o = n_overlap  # overlap of the sliding window
-    self.n_p_h = int(np.ceil(
-      self.i_h / (self.p_h - self.n_o)))  # number of patches for height
-    self.n_p_w = int(np.ceil(
-      self.i_w / (self.p_w - self.n_o)))  # number of patches for width
-    self.patch_meta = []  # Patch pos and size
+def get_subwindows(im, tile_size, padding_size=32):
+  height, width, = tile_size, tile_size
+  y_stride, x_stride, = tile_size - (2 * padding_size), tile_size - (
+      2 * padding_size)
+  if (height > im.shape[0]) or (width > im.shape[1]):
+    print("Invalid crop: crop dims larger than image %r" % im.shape)
+    exit(1)
+  ims = list()
+  locations = list()
+  y = 0
+  y_done = False
+  while y <= im.shape[0] and not y_done:
+    x = 0
+    if y + height > im.shape[0]:
+      y = im.shape[0] - height
+      y_done = True
+    x_done = False
+    while x <= im.shape[1] and not x_done:
+      if x + width > im.shape[1]:
+        x = im.shape[1] - width
+        x_done = True
+      locations.append((
+        (y, x, y + height, x + width),
+        (y + padding_size, x + padding_size, y + y_stride, x + x_stride),
+        TOP_EDGE if y == 0 else (
+          BOTTOM_EDGE if y == (im.shape[0] - height) else MIDDLE),
+        LEFT_EDGE if x == 0 else (
+          RIGHT_EDGE if x == (im.shape[1] - width) else MIDDLE)
+      ))
+      ims.append(im[y:y + height, x:x + width, :])
+      x += x_stride
+    y += y_stride
 
-  def _open_image(self, path):
-    return np.asarray(Image.open(path).convert('RGB'))
+  return locations, ims
 
-  def get_patch_size(self):
-    return self.p_h, self.p_w
 
-  def get_img_shape(self):
-    return self.i_h, self.i_w, self.n_c
+def stitch_together(locations, subwindows, size, tile_size, padding_size=32):
+  from icecream import ic
+  ic(locations[0])
+  ic(subwindows[0].shape)
+  output = np.zeros(size, dtype=np.float32)
+  for location, subwindow in zip(locations, subwindows):
+    subwindow = np.squeeze(subwindow)
+    outer_bounding_box, inner_bounding_box, y_type, x_type = location
+    y_paste, x_paste, y_cut, x_cut, height_paste, width_paste = -1, -1, -1, -1, -1, -1
 
-  def get_patches_gen(self):
-    for i in range(self.n_p_h):
-      for j in range(self.n_p_w):
-        # Allocate some memory
-        patch = np.zeros((self.p_h, self.p_w, self.n_c), dtype=np.float32)
-        # Calculate end positions of the sliding window
-        to_h = min((i + 1) * (self.p_h - self.n_o), self.i_h)
-        to_w = min((j + 1) * (self.p_w - self.n_o), self.i_w)
-        # Handle edge cases at the end of the sliding window
-        p_h_ = self.p_h
-        if i + 1 == self.n_p_h:
-          modulo = to_h % self.p_h
-          p_h_ = modulo if modulo > 0 else p_h_
-        p_w_ = self.p_w
-        if j + 1 == self.n_p_w:
-          modulo = to_w % self.p_w
-          p_w_ = modulo if modulo > 0 else p_w_
-        self.patch_meta.append(PatchMeta(height=p_h_,
-                                         width=p_w_,
-                                         pos_h=i * (self.p_h - self.n_o),
-                                         pos_w=j * (self.p_w - self.n_o)))
-        # At the end, the patch is filled with zeros
-        patch[:p_h_, :p_w_, :] = \
-          self.img[i * self.p_h:to_h, j * self.p_w:to_w, :]
-        yield patch
+    if y_type == TOP_EDGE:
+      y_cut = 0
+      y_paste = 0
+      height_paste = tile_size - padding_size
+    elif y_type == MIDDLE:
+      y_cut = padding_size
+      y_paste = inner_bounding_box[0]
+      height_paste = tile_size - 2 * padding_size
+    elif y_type == BOTTOM_EDGE:
+      y_cut = padding_size
+      y_paste = inner_bounding_box[0]
+      height_paste = tile_size - padding_size
 
-  def get_patch_meta(self, idx):
-    return self.patch_meta[idx]
+    if x_type == LEFT_EDGE:
+      x_cut = 0
+      x_paste = 0
+      width_paste = tile_size - padding_size
+    elif x_type == MIDDLE:
+      x_cut = padding_size
+      x_paste = inner_bounding_box[1]
+      width_paste = tile_size - 2 * padding_size
+    elif x_type == RIGHT_EDGE:
+      x_cut = padding_size
+      x_paste = inner_bounding_box[1]
+      width_paste = tile_size - padding_size
+
+    output[y_paste:y_paste + height_paste, x_paste:x_paste + width_paste] = \
+      subwindow[y_cut:y_cut + height_paste, x_cut:x_cut + width_paste]
+
+  return output
+
+
+def open_img(path):
+  return np.asarray(Image.open(path).convert('RGB'))
 
 
 def save_img(image, path):
   img = Image.fromarray(image)
+  if img.mode != 'RGB':
+    img = img.convert('RGB')
   img.save(path, format='png')
 
 
