@@ -40,8 +40,7 @@ python3 /cluster/ko01jaxu/ma-proj/train.py \
     --epochs_per_eval=200 \
     --train_epochs=5000 \
     --buffer_size=200 \
-    --crf_training=True \
-    --only_crf=True
+    --crf_training=True
 
 deactivate
 

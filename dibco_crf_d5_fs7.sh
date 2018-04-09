@@ -38,12 +38,11 @@ python3 /cluster/ko01jaxu/ma-proj/train.py \
     --model_dir=$MODEL_DIR \
     --data_dir=$DATA_DIR \
     --dataset=$DATA_SET \
-    --batch_size=8 \
+    --batch_size=4 \
     --epochs_per_eval=200 \
     --train_epochs=5000 \
     --buffer_size=200 \
-    --crf_training=True \
-    --only_crf=True
+    --crf_training=True
 
 deactivate
 
