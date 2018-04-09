@@ -13,6 +13,9 @@ def get_subwindows(im, tile_size, padding_size=32):
   height, width, = tile_size, tile_size
   y_stride, x_stride, = tile_size - (2 * padding_size), tile_size - (
       2 * padding_size)
+  if y_stride < 0 or x_stride < 0:
+    print("Invalid tile or padding size. tile_size must be bigger than 2 * padding")
+    exit(1)
   if (height > im.shape[0]) or (width > im.shape[1]):
     print("Invalid crop: crop dims larger than image %r" % im.shape)
     exit(1)
