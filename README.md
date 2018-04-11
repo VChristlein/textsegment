@@ -3,19 +3,24 @@
 ### Requirements
 Tested with tensorflow 1.6. Recommended installation via virtualenv:
 ```sh
+# Clone repo
+git clone --recursive git@gitlab.cs.fau.de:ko01jaxu/ma-proj.git
+
+# Setup virtualenv for crf compilation and training
 TF_VERSION=1.6
+
 # Change MY_ENV_DIR to the desired virtualenv directory.
-MY_ENV_DIR=.
-virtualenv --system-site-packages -p python3 $MY_ENV_DIR # for Python 3.n
+MY_ENV_DIR=/tmp/tf-$TF_VERSION-env
+virtualenv --system-site-packages -p python3 $MY_ENV_DIR
 
-echo "export CUDA_HOME=/usr/local/cuda-9.0/" >> $MY_ENV_DIR/bin/postactivate
-echo "export LD_LIBRARY_PATH=/usr/local/cuda-9.0/lib64" >> $MY_ENV_DIR/bin/postactivate
-
+# If you have virtualenvwrapper installed use bin/postactivate for this
+echo "export CUDA_HOME=/usr/local/cuda-9.0/" >> $MY_ENV_DIR/bin/activate
+echo "export LD_LIBRARY_PATH=/usr/local/cuda-9.0/lib64" >> $MY_ENV_DIR/bin/activate
 source $MY_ENV_DIR/bin/activate
 
 easy_install -U pip
 pip3 install --upgrade pip
-pip3 install --upgrade tensorflow-gpu==$TF_VERSION Pillow
+pip3 install --upgrade tensorflow-gpu==$TF_VERSION Pillow opencv-python
 
 # Compile CRF extension
 cd ma-proj/
@@ -71,7 +76,7 @@ DATA_SET=dibco
 MODEL_DIR=/tmp/models/$DATA_SET/crf_d5_fs7
 DATA_DIR=/tmp/$DATA_SET
 
-python3 /cluster/ko01jaxu/ma-proj/train.py \
+python3 train.py \
     --unet_depth=5 \
     --filter_size=7 \
     --model_dir=$MODEL_DIR \
@@ -82,4 +87,12 @@ python3 /cluster/ko01jaxu/ma-proj/train.py \
     --train_epochs=5000 \
     --buffer_size=200 \
     --crf_training=True
+
+python3 predict.py \
+    --unet_depth=5 \
+    --filter_size=7 \
+    --model_dir=$MODEL_DIR \
+    --data_dir=$DATA_DIR \
+    --dataset=$DATA_SET \
+    $DATA_DIR/*
 ```
