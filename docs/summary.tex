@@ -1,0 +1,131 @@
+\documentclass[a4paper, 9pt, twocolumn]{extarticle}
+
+\usepackage{amsmath,graphicx,amssymb,cite}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{url}
+
+
+\addtolength{\textwidth}{2.1cm}
+\addtolength{\topmargin}{-2.4cm}
+\addtolength{\oddsidemargin}{-1.1 cm}
+\addtolength{\textheight}{4.5cm}
+\setlength{\columnsep}{0.7cm}
+
+\pagestyle{empty}
+
+\begin{document}
+
+\date{\normalsize 11.04.2018}
+
+\title{\vspace{-8mm}\textbf{\Large
+Text binarization for historical documents with Tensorflow\footnote{This is the
+  summary of my computer science master project \emph{Projekt Mustererkennung
+  (ProjME)}, Winter Term 2017/18, Friedrich-Alexander Universit\"at
+  Erlangen-N\"urnberg.
+  Supervisor: Vincent Christ\-lein.
+}}}
+
+\author{
+{
+\begin{minipage}{\textwidth}
+\center
+Hendrik Schröter\\
+\small
+ko01jaxu\\
+Friedrich-Alexander Universit\"at Erlangen-N\"urnberg
+\protect\\{} %
+\url{hendrik.m.schroeter@fau.de}
+\end{minipage}
+}
+}
+
+\maketitle
+\thispagestyle{empty}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+\label{section:introduction}
+
+The task of this project was to implement and combine state of the art methods
+for text binarization on the DIBCO dataset \cite{pratikakis2017icdar2017}. The
+Tensorflow \cite{abadi2016tensorflow} based implementation uses convolutional
+neural networks to generate ground truth text images for a given document
+image. \\
+The underlying model architecture is an U-Net \cite{ronneberger2015u}
+followed by a conditional random field as recurrent neural network (CRF as RNN)
+\cite{crfasrnn_ICCV2015} included in the end-to-end deep learning pipeline.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Approach}
+\label{section:approach}
+
+The U-Net implementation was first tested on the popular CIFAR10 image
+segmentation challenge to check if the implementation works correctly.
+Furthermore an implementation of the CRF as RNN was added from
+\cite{Jayasumana2017}.\\
+In the next step I trained a model on the DIBCO dataset. Since the DIBCO has
+only a few images (86 images for train) data augmentation was implemented. The
+model architecture was also evaluated on the HISDB dataset which does not model
+the text itself but a polygon bounding area around each line. Later I tried to
+use transfer learning from the HISDB to DIBCO.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Implementation}
+\label{section:implementation}
+
+\subsection*{Data loading}
+
+I prepared the HISDB and DIBCO datasets by combining all images of all
+challenges into one package and provided two csv files which list the file paths
+of the training respectively test images. When starting training, the dataset
+will get downloaded automatically and packed into a tfrecord for efficient data
+loading. The images will then be unpacked, preprocessed, shuffled and packed
+into batches tf.data.Dataset api. The preprocessing includes normalization using
+a precomputed mean of the train dataset, per image standard deviation, random
+crop of a patch for training (e.g. 250x250 pixel), random rotation, random
+contrast and brightness changes and rgb to bgr conversion.
+
+\subsection*{U-Net}
+
+The U-Net architecture was chosen because it because it provides on the one hand
+short cut connections similar to a Resnet architecture. This provides a better
+gradient flow and faster and more stable training. Ont the other hand the U-Net
+provides a relatively scale invariant processing due to the down and upscaling
+layers. Therefor the U-Net can handle different sizes of text automatically. I
+tested U-Nets of depth 3 to 5 with respectively 3 or 5 down and upscale blocks.
+One block consists out of 2 x [convolution, dropout, batchnorm and relu
+activation] and a max pool layer for a downscale block and a transposed
+convolution for a upscale block. The Output from each downscale before the max
+pooling is stacked with the input of the corresponding upscale layer. The
+network was trained using a momentum optimizer with an initial learning rate of
+$0.1\cdot \text{batch\_size} / 64$ and a momentum of 0.9.
+
+\subsection*{CRF}
+
+The CRF is implemented as RNN formulation of the mean field algorithm. However I
+found that, since only are learned $3\cdot N^2$ (where $N$: number of classes)
+parameters the CRF does bring a significant improvement of the accuracy.
+
+\subsection*{Transfer learning}
+
+Since the DIBCO dataset is very small, I tried to improve the accuracy using
+pretraining on the HISDB dataset. Therefor I trained the network on the HISDB
+dataset and used the pretrained weights as initialization for the DIBCO
+training. However I found that the network already overfitted on the HISDB
+ground truth images (polygon around the line) and was not able to generalize
+using the pretrained features. The result was still a predicted polygon for the
+DIBCO dataset but much smaller around each word or letter. Also the next attempt
+using only the weights of the downscale layers as initialization didn't bring a
+accuracy boost over only training with the DIBCO data. I think this was the case
+because of the very differing ground truth images of both datasets.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bibliographystyle{abbrv}
+\small
+\bibliography{references}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\end{document}
