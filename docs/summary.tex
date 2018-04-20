@@ -92,7 +92,7 @@ contrast and brightness changes and rgb to bgr conversion.
 
 The U-Net architecture was chosen because it because it provides on the one hand
 short cut connections similar to a Resnet architecture. This provides a better
-gradient flow and faster and more stable training. Ont the other hand the U-Net
+gradient flow and faster and more stable training. On the other hand an U-Net
 provides a relatively scale invariant processing due to the down and upscaling
 layers. Therefor the U-Net can handle different sizes of text automatically. I
 tested U-Nets of depth 3 to 5 with respectively 3 or 5 down and upscale blocks.
@@ -101,13 +101,17 @@ activation] and a max pool layer for a downscale block and a transposed
 convolution for a upscale block. The Output from each downscale before the max
 pooling is stacked with the input of the corresponding upscale layer. The
 network was trained using a momentum optimizer with an initial learning rate of
-$0.1\cdot \text{batch\_size} / 64$ and a momentum of 0.9.
+$0.1\cdot \text{batch\_size} / 64$ and a momentum of 0.9 and a learning rate
+decay of 0.95 every 10 epochs. As loss was cross entropy loss function combined
+with a weight decay of 2e-4 used.
 
 \subsection*{CRF}
 
 The CRF is implemented as RNN formulation of the mean field algorithm. However I
 found that, since only are learned $3\cdot N^2$ (where $N$: number of classes)
 parameters the CRF does bring a significant improvement of the accuracy.
+Furthermore the CRF implementation is restricted to a batch size of 1 which
+slows down the training a lot.
 
 \subsection*{Transfer learning}
 
@@ -120,7 +124,25 @@ using the pretrained features. The result was still a predicted polygon for the
 DIBCO dataset but much smaller around each word or letter. Also the next attempt
 using only the weights of the downscale layers as initialization didn't bring a
 accuracy boost over only training with the DIBCO data. I think this was the case
-because of the very differing ground truth images of both datasets.
+because of the very differing ground truth images of both datasets.\\
+Pretraining with synthesized training data could possibly improve the results.
+
+\subsection*{Prediction}
+
+The prediction of new images was done with an overlapping sliding window
+approach. This was necessary to compute the predicted ground truth for high
+resolution images with limited GPU memory. For every sliding window I only used
+the middle part to reduce artifacts at the edges.
+
+\subsection*{Results}
+
+I found that networks with not so many parameters perform better than deeper
+networks due to the limited amount of training data. I got the best results with
+a depth of 4 and convolution filter size of 3 and no CRF. The U-Net was trained
+on the DIBCO challenges from 2009-2016 and tested on the 2017 challenge with an
+accuracy of 97.51 \%, a f-measure of 89.67 \% and a PSNR of 16.05. The results
+are similar to the second place of the DIBCO 2017 challenge
+\cite{pratikakis2017icdar2017}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \bibliographystyle{abbrv}
