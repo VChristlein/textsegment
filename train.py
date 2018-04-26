@@ -171,11 +171,6 @@ def main(unused_argv):
       tensors_to_log = {
         'learning_rate': 'learning_rate',
         'cross_entropy': 'cross_entropy',
-        #'accuracy': 'accuracy',
-        #'psnr': 'psnr',  # Peak signal to noise ratio
-        # 'DRD': 'DRD',  # Distance Reciprocal Distortion Metric
-        # 'train_f1_score': 'train_f1_score',
-        # 'train_pf1_score': 'train_pf1_score',
       }
 
       logging_hook = tf.train.LoggingTensorHook(

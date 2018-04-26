@@ -10,6 +10,7 @@ BOTTOM_EDGE = 2
 
 
 def get_subwindows(im, tile_size, padding_size=32):
+  # Credits: https://github.com/ctensmeyer/dibco_2017
   height, width, = tile_size, tile_size
   y_stride, x_stride, = tile_size - (2 * padding_size), tile_size - (
       2 * padding_size)
@@ -49,6 +50,7 @@ def get_subwindows(im, tile_size, padding_size=32):
 
 
 def stitch_together(locations, subwindows, size, tile_size, padding_size=32):
+  # Credits: https://github.com/ctensmeyer/dibco_2017
   output = np.zeros(size, dtype=np.float32)
   for location, subwindow in zip(locations, subwindows):
     subwindow = np.squeeze(subwindow)

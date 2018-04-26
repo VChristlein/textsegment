@@ -66,6 +66,7 @@ def unet(inputs, blocks, num_classes, filter_size, is_training,
 
     shortcuts = OrderedDict()
 
+    # For transfer learning only use the downsample layers
     with tf.variable_scope('transfer'):
       # down sampling
       for i in range(blocks["size"]):

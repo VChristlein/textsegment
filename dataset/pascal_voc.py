@@ -23,6 +23,8 @@ def prepare_pascal_voc(data_dir=DEFAULT_DATA_DIR,
                        out_dir=DEFAULT_RECORD_DIR,
                        force=False):
   """ Downloads and extracts pascal voc and its annotation data. """
+  print("Warning: This dataset was for testing only. It probably won't work anymore.")
+
   if not os.path.exists(data_dir):
     os.makedirs(data_dir)
   if not os.path.exists(out_dir):

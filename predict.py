@@ -22,6 +22,9 @@ parser.add_argument('images', type=str, nargs='+',
                     help='Path to the images to process')
 
 # Basic model parameters.
+
+# Make sure to use the same parameter (unet depth, filter size) as the
+# trained model
 parser.add_argument('--out_dir', type=str, default='/tmp/out',
                     help='The path to the dataset directory.')
 
@@ -128,10 +131,12 @@ def main(unused_argv):
 
     results = []
     print('Predicting ground truth ...')
+    # Predict all subwindows
     for p in classifier.predict(lambda: input_fn(patch_gen, img_mean)):
       results.append(p['result'])
     path = os.path.join(
         FLAGS.out_dir, os.path.splitext(img_name)[0] + '_prediction' + '.png')
+    # And fuse all together using only the middle part of each prediction
     save_img(stitch_together(locations, results, img.shape[:-1],
                              FLAGS.img_patch_size), path)
     print('finished!')
