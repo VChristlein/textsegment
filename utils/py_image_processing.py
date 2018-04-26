@@ -1,6 +1,5 @@
 import numpy as np
 from PIL import Image
-import cv2
 
 LEFT_EDGE = -2
 TOP_EDGE = -1
@@ -99,10 +98,3 @@ def save_img(image, path):
     img = img.convert('RGB')
   img.save(path, format='png')
 
-
-def cv_distanceTransform(gt_label):
-  # Iterate over all batches
-  ret = np.empty_like(gt_label, dtype=np.float32)
-  for i in range(gt_label.shape[0]):
-    ret[i, :, :] = cv2.distanceTransform(gt_label[i, :, :], cv2.DIST_L2, 3)
-  return ret
