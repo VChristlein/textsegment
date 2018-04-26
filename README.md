@@ -1,4 +1,53 @@
-# Text binarization with tensorflow
+# Text binarization with tensorflow on the [DIBCO challenges][1]
+
+### Results
+
+I trained the model on the DIBCO dataset (2009-2016). This are the
+(validation) results for the 2017 challenge:
+
+| Type | F-Measure | Pseudo F-Measure | PSNR   | DRD   |
+|------|-----------|------------------|--------|-------|
+| Both | 90,048    | 93,9915          | 17,561 | 3,064 |
+| H    | 89,106	   | 94,004           | 16,916 | 3,331 |
+| P    | 90,99	   | 93,979           | 18,206 | 2,797 |
+
+
+Individual image results:
+
+|    | Type | F-Measure | Pseudo F-Measure | PSNR  | DRD  |
+|----|------|-----------|------------------|-------|------|
+| 1	 | H    | 86,56     | 93,23            | 16,29 | 3,48 |
+| 2	 | H    | 88,08     | 93,56            | 16,48 | 3,92 |
+| 3	 | H    | 88,46     | 95,25            | 17,76 | 3,16 |
+| 4	 | H    | 86,57     | 92,88            | 18,15 | 4,02 |
+| 5	 | H    | 87,90     | 92,54            | 20,44 | 3,73 |
+| 6	 | H    | 93,24     | 95,55            | 15,23 | 2,42 |
+| 7	 | H    | 92,64     | 94,08            | 15,07 | 2,77 |
+| 8	 | H    | 88,53     | 95,08            | 17,64 | 3,88 |
+| 9	 | H    | 88,19     | 92,19            | 16,10 | 3,32 |
+| 10 | H    | 90,89     | 95,68            | 16,00 | 2,61 |
+| 11 | P    | 94,48     | 93,99            | 18,04 | 2,66 |
+| 12 | P    | 89,56     | 92,05            | 17,10 | 3,46 |
+| 13 | P    | 89,97     | 89,71            | 18,23 | 3,62 |
+| 14 | P    | 91,68     | 94,71            | 19,01 | 2,43 |
+| 15 | P    | 93,20     | 94,56            | 16,85 | 1,97 |
+| 16 | P    | 93,79     | 94,46            | 21,60 | 2,01 |
+| 17 | P    | 89,85     | 95,89            | 19,99 | 2,27 |
+| 18 | P    | 87,86     | 95,26            | 16,53 | 3,60 |
+| 19 | P    | 89,43     | 91,41            | 18,00 | 3,38 |
+| 20 | P    | 90,08     | 97,75            | 16,71 | 2,57 |
+
+H: Handwritten
+P: Printed
+
+#### Links
+
+Pretrained model from the results above:
+https://www.dropbox.com/sh/9r9ep5ee95k22xk/AABr0gDllCX7xXD2LE9Ex6bwa?dl=0
+
+Predicted ground truth:
+https://www.dropbox.com/sh/tql95946q7uwkye/AABq-v7YFSTaoPlaDPypSFyUa?dl=0
+
 
 ### Requirements
 Tested with tensorflow 1.6. Recommended installation via virtualenv:
@@ -96,3 +145,5 @@ python3 predict.py \
     --dataset=$DATA_SET \
     $DATA_DIR/*
 ```
+
+[1]: https://vc.ee.duth.gr/h-dibco2018/
