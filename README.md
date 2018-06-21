@@ -138,10 +138,9 @@ python3 train.py \
     --crf_training=True
 
 python3 predict.py \
-    --unet_depth=5 \
-    --filter_size=7 \
+    --unet_depth=4 \
+    --filter_size=5 \
     --model_dir=$MODEL_DIR \
-    --data_dir=$DATA_DIR \
     --dataset=$DATA_SET \
     $DATA_DIR/*
 ```
