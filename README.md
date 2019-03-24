@@ -1,5 +1,7 @@
 # Text binarization with tensorflow on the [DIBCO challenges][1]
 
+This work was done by Hendrik Schröter in the course of a master's project (under my supervision).
+
 ### Results
 
 I trained the model on the DIBCO dataset (2009-2016). This are the
