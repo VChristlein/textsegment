@@ -148,3 +148,8 @@ python3 predict.py \
 ```
 
 [1]: https://vc.ee.duth.gr/h-dibco2018/
+
+#### Acknowledgement
+
+Development for this tool has been supported by the European project 211 "Modern access to historical sources" a Cross-border cooperation program Free State of Bavaria and the Czech Republic.
+
