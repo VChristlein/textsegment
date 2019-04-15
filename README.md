@@ -55,7 +55,7 @@ https://www.dropbox.com/sh/tql95946q7uwkye/AABq-v7YFSTaoPlaDPypSFyUa?dl=0
 Tested with tensorflow 1.6. Recommended installation via virtualenv:
 ```sh
 # Clone repo
-git clone --recursive git@gitlab.cs.fau.de:ko01jaxu/ma-proj.git
+git clone --recursive https://github.com/VChristlein/textsegment
 
 # Setup virtualenv for crf compilation and training
 TF_VERSION=1.6
